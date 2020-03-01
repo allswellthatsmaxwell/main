@@ -9,5 +9,9 @@ mutable struct WindyGridWorldEnv <: Reinforce.AbstractEnvironment
     actions(env, s) = []
 end
 
+## Let's make a grid. Let's start with a square one and if we
+## want to get crazy later we can change it.
+## How about an adjacency matrix as the data structure?
+
 end
     
