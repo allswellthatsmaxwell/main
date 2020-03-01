@@ -10,7 +10,8 @@ docker run -it --rm \
        -e NB_UID=1000 \
        -e USERID=1000 \
        -e JUPYTER_ENABLE_LAB=yes \
-       jupyter/datascience-notebook:latest jupyter lab --NotebookApp.token=''
+       --user=root \
+       jupyter/datascience-notebook:latest jupyter lab --NotebookApp.token='' --allow-root
 
 # jupyter/datascience-notebook:latest start.sh jupyter lab --NotebookApp.token='' --NotebookApp.port=$port
        
