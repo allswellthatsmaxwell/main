@@ -46,7 +46,7 @@ function flat_index(g::Grid, cell::CellIndex)::FlatIndex
     """
     returns the FlatIndex for a CellIndex
     """
-    return (1 + cell.row) + g.rows * cell.col
+    return cell.row + g.rows * cell.col
 end
 
 ## Ah, wait, damn, I don't want this. This would be like teleportation.

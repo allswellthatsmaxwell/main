@@ -1,24 +1,29 @@
-include("../environment.jl")
-using .Environment
-
+include("../src/environment.jl")
+using .Environment: CellIndex, FlatIndex, MustMoveGrid, flat_index, cell_index
 using Test
 
 struct Pair
     c::CellIndex
     f::FlatIndex
 end
-Pair(t::Tuple{Int64}, f::FlatIndex) = Pair(CellIndex(t...), f)
+
 g = MustMoveGrid(6, 5)
-test_c_to_f(p::Pair) = @test flat_index(g, p.c) == p.f
-test_f_to_c(p::Pair) = @test cell_index(g, p.f) == p.c
-c_to_f_pairs = (
-    Pair((0, 0), 1),
-    Pair((2, 0), 3),
-    Pair((1, 1), 8),
-    Pair((2, 1), 9),
-    Pair((0, 2), 13),
-    Pair((2, 2), 15)        
+Pair(t::Tuple{Int64}, f::FlatIndex) = Pair(CellIndex(t...), f)
+
+pairs = (
+    Pair(CellIndex(0, 0), 0),
+    Pair(CellIndex(2, 0), 2),
+    Pair(CellIndex(1, 1), 7),
+    Pair(CellIndex(2, 1), 8),
+    Pair(CellIndex(0, 2), 12),
+    Pair(CellIndex(2, 2), 14)
 )
-for pair in c_to_f_pairs
-    test_c_to_f(pair)
+
+@testset for p in pairs
+    @test flat_index(g, p.c) == p.f
 end
+
+@testset for p in pairs
+    @test cell_index(g, p.f) == p.c
+end
+
