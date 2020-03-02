@@ -1,5 +1,5 @@
 include("../src/environment.jl")
-using .Environment: CellIndex, FlatIndex, MustMoveGrid, flat_index, cell_index
+using .Environment: CellIndex, FlatIndex, GridWorld, flat_index, cell_index
 using Test
 
 struct Pair
@@ -7,7 +7,7 @@ struct Pair
     f::FlatIndex
 end
 
-g = MustMoveGrid(6, 5)
+g = GridWorld(6, 5)
 Pair(t::Tuple{Int64}, f::FlatIndex) = Pair(CellIndex(t...), f)
 
 pairs = (
