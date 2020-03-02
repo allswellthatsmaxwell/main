@@ -5,7 +5,8 @@ using .Environment: WindyGridWorldEnv, MustMoveGrid
 function main()
     ## this fails because AbstractEnvironment has no zero-arg constructor
     # env = WindyGridWorldEnv()
-    println(g)
+    grid = MustMoveGrid()
+    println(grid)
     
 end
 
