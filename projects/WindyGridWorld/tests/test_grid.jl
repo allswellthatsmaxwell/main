@@ -1,5 +1,5 @@
-include("../src/environment.jl")
-using .Environment: CellIndex, FlatIndex, GridWorld, flat_index, cell_index
+include("../src/worlds.jl")
+using .Worlds: CellIndex, FlatIndex, GridWorld, flat_index, cell_index
 using Test
 
 struct Pair
