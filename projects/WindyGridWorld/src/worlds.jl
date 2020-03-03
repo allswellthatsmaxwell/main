@@ -6,16 +6,34 @@ NTILES = 40
 
 abstract type Grid end
 
-struct GridWorld <: Grid    
+mutable struct GridWorld <: Grid
+    """
+    :param Q: maps states to estimated future rewards
+    """
     rows::Int64
     cols::Int64
     graph::SimpleGraph
+    Q::Dict{Integer, Float64}
+    actions_to_moves::Dict{Integer, Function}
+end
+
+function GridWorld(rows::Int64, cols::Int64, graph::SimpleGraph,
+                   Q::Dict{Integer, Float64})
+    moves = (left, right, up, down)
+    actions_to_moves = Dict([(i, fn) for i, fn in enumerate(moves)])
+    return GridWorld(rows, cols, graph, Q, actions_to_moves)
+    
+end
+
+function GridWorld(rows::Int64, cols::Int64, graph::SimpleGraph)
+    Q = Dict([(i, 0) for i in 1:(rows * cols)])
+    return GridWorld(rows, cols, graph, Q)
 end
 
 function GridWorld(rows::Int64, cols::Int64)
     graph = SimpleGraph(rows * cols)
     connect_adjacent(graph, rows, cols)
-    GridWorld(rows, cols, graph)
+    return GridWorld(rows, cols, graph)
 end
 
 GridWorld(ntiles::Int64) = GridWorld(ntiles ÷ 2, ntiles ÷ 2)
@@ -25,6 +43,33 @@ struct CellIndex
     row::Int64
     col::Int64
 end
+
+left(g::GridWorld, c::CellIndex)  = move_if_dest_exists(g, c, CellIndex(c.row, c.col - 1))
+right(g::GridWorld, c::CellIndex) = move_if_dest_exists(g, c, CellIndex(c.row, c.col + 1))
+up(g::GridWorld, c::CellIndex)    = move_if_dest_exists(g, c, CellIndex(c.row + 1, c.col))
+down(g::GridWorld, c::CellIndex)  = move_if_dest_exists(g, c, CellIndex(c.row - 1, c.col))
+
+function exists(g::GridWorld, c::CellIndex)::Bool
+    """
+    Returns whether c is an existing position in the GridWorld.
+    """
+    return 0 <= c.row <= g.rows && 0 <= c.col <= g.cols
+end
+
+function move_if_dest_exists(g::GridWorld, c::CellIndex,
+                             c_new::CellIndex)::CellIndex
+    """
+    Returns c_new if it exists in the GridWorld; else, returns c.
+    """
+    if exists(g, c_new)
+        return c_new
+    else if exists(g, c)            
+        return c
+    else
+        error("source cell index $(c) does not exist in world")
+    end
+end
+
 
 FlatIndex = Integer
 
