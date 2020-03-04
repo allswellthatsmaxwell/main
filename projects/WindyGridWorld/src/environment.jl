@@ -31,60 +31,6 @@ mutable struct WindyGridWorld <: Reinforce.AbstractEnvironment
     world::GridWorld
 end
 
-mutable struct Policy <: AbstractPolicy
-    """
-    :param Q: maps states to estimated future rewards.
-    :param ε: the ε for ε-greedy methods.
-    :param rows, cols: the dimensions of the world this policy
-    operates within.
-    """
-    ε::Float64
-    Q::Dict{Integer, Float64}    
-    rows::Integer
-    cols::Integer
-    rng::MersenneTwister
-end
-
-function Policy(ε::Float64, rows::Integer, cols::Integer)    
-    Q = Dict([(i, 0) for i in 1:(rows * cols)])
-    rng = MersenneTwister()
-    return Policy(ε, Q, rows, cols, rng)
-end
-
-adjacent(p::Policy, i::FlatIndex, j::FlatIndex) = adjacent(p.rows, p.cols, i, j)
-adjacent(p::Policy, i::FlatIndex, s::WorldState) = adjacent(
-    p.rows, p.cols, i, s.index)
-
-function find_best_action(policy::Policy, s::WorldState, actions)
-    struct Pair
-        tile::FlatIndex
-        value::Float64
-    end
-
-    available_actions = []    
-    for (tile, value) in policy.Q
-        if adjacent(policy, tile, s)
-            append!(available_actions, Pair(tile, value))
-        end
-    end
-    best_value = max([p.value for p in available_actions])
-    best_tile  = [p.tile for p in available_actions
-                  if p.value == best_value][0]
-    return best_tile
-end
-
-function action(policy::Policy, r::Reward, s::WorldState, actions)
-    ## return the next action
-    ## let's use episilon-greedy - do the best action from Q
-    ## with probability 1 - ε, and a random action from it with probability ε.
-    r = rand(policy.rng)
-    if r < policy.ε
-        return rand(policy.rng, actions)
-    else
-        return find_best_action(policy, s, actions)
-    end
-end
-
 WindyGridWorld() = WindyGridWorld(WorldState(),
                                   default_start_cell,
                                   default_goal_cell,
@@ -105,6 +51,69 @@ WindyGridWorld(start_cell::CellIndex,
                    default_goal_cell,
                    0,
                    GridWorld(rows=rows, cols=cols))
+
+mutable struct Policy <: AbstractPolicy
+    """
+    :param Q: maps states to estimated future rewards.
+    :param ε: the ε for ε-greedy methods.
+    :param rows, cols: the dimensions of the world this policy
+    operates within.
+    """
+    ε::Float64
+    Q::Dict{Integer, Float64}
+    world::WindyGridWorld
+    rng::MersenneTwister
+end
+
+function Policy(ε::Float64, world::WindyGridWorld)    
+    Q = Dict([(i, 0) for i in 1:(world.rows * world.cols)])
+    rng = MersenneTwister()
+    return Policy(ε, Q, world, rng)
+end
+
+adjacent(p::Policy, i::FlatIndex, j::FlatIndex) = adjacent(p.rows, p.cols, i, j)
+adjacent(p::Policy, i::FlatIndex, s::WorldState) = adjacent(
+    p.rows, p.cols, i, s.index)
+
+function find_move_for_target(world::GridWorld, current_cell::CellIndex,
+                              target_cell::CellIndex)
+    for action, move in world.actions_to_moves:
+        if move(policy.world, s.cell) == target_cell
+            return action
+        end
+    end
+    error("Failed to find a way to move from $(current_cell) to $(target_cell)")
+
+
+function find_best_action(policy::Policy, s::WorldState, actions)
+    struct Pair
+        tile::FlatIndex
+        value::Float64
+    end
+
+    available_actions = []    
+    for (tile, value) in policy.Q
+        if adjacent(policy, tile, s)
+            append!(available_actions, Pair(tile, value))
+        end
+    end
+    best_value = max([p.value for p in available_actions])
+    best_tile  = [p.tile for p in available_actions
+                  if p.value == best_value][0]
+    return find_move_for_target(policy.world, CellIndex(best_tile))
+end
+
+function action(policy::Policy, r::Reward, s::WorldState, actions)
+    ## return the next action
+    ## let's use episilon-greedy - do the best action from Q
+    ## with probability 1 - ε, and a random action from it with probability ε.
+    r = rand(policy.rng)
+    if r < policy.ε
+        return rand(policy.rng, actions)
+    else
+        return find_best_action(policy, s, actions)
+    end
+end
 
 function reset!(env::WindyGridWorld)
     env.position = env.start_cell

@@ -1,11 +1,11 @@
 module WindyGridWorld
 include("./environment.jl")
-using .Environment: WindyGridWorld, GridWorld
+using .Environment: WindyGridWorld, GridWorld, Policy
 
 function main()
-    ## this fails because AbstractEnvironment has no zero-arg constructor
     env = WindyGridWorld()
-    grid = GridWorld()
+    policy = Policy(0.1, env.world)
+    
     println(grid)
     println(env)
     

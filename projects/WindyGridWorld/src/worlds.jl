@@ -39,6 +39,8 @@ struct CellIndex
     col::Int64
 end
 
+CellIndex(g::GridWorld, i::FlatIndex) = 
+
 left(g::GridWorld, c::CellIndex)  = move_if_dest_exists(g, c, CellIndex(c.row, c.col - 1))
 right(g::GridWorld, c::CellIndex) = move_if_dest_exists(g, c, CellIndex(c.row, c.col + 1))
 up(g::GridWorld, c::CellIndex)    = move_if_dest_exists(g, c, CellIndex(c.row + 1, c.col))
@@ -75,12 +77,12 @@ function adjacent(a::CellIndex, b::CellIndex)::Bool
 end
 
 function adjacent(rows::Integer, cols::Integer, a::FlatIndex, b::FlatIndex)
-    return adjacent(cell_index(rows, cols, a), cell_index(rows, cols, b))
+    return adjacent(CellIndex(rows, cols, a), CellIndex(rows, cols, b))
 end
 
 adjacent(g::Grid, a::FlatIndex, b::FlatIndex) = adjacent(g.rows, g.cols, a, b)
 
-function cell_index(rows::Integer, cols::Integer, i::FlatIndex)::CellIndex
+function CellIndex(rows::Integer, cols::Integer, i::FlatIndex)::CellIndex
     """
     returns the CellIndex for a FlatIndex in a grid with the specified
     number of rows and columns.
@@ -96,7 +98,7 @@ function flat_index(rows::Integer, cell::CellIndex)::FlatIndex
     return cell.row + rows * cell.col
 end
 
-cell_index(g::Grid, i::FlatIndex) = cell_index(g.rows, g.cols, i)
+CellIndex(g::Grid, i::FlatIndex) = CellIndex(g.rows, g.cols, i)
 flat_index(g::Grid, cell::CellIndex) = flat_index(g.rows, cell)
 
 function connect_conditionally(g::SimpleGraph, cond::Function)::Nothing
