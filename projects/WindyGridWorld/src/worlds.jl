@@ -14,15 +14,10 @@ mutable struct GridWorld <: Grid
 end
 
 function GridWorld(rows::Int64, cols::Int64, graph::SimpleGraph)
-    moves = (left, right, up, down)
-    actions_to_moves = Dict([(i, fn) for i, fn in enumerate(moves)])
+    moves = (left, right, up, down, stay)
+    actions_to_moves = Dict([(i, fn) for (i, fn) in enumerate(moves)])
     return GridWorld(rows, cols, graph, actions_to_moves)
     
-end
-
-function GridWorld(rows::Int64, cols::Int64, graph::SimpleGraph)
-    
-    return GridWorld(rows, cols, graph)
 end
 
 function GridWorld(rows::Int64, cols::Int64)
@@ -34,17 +29,28 @@ end
 GridWorld(ntiles::Int64) = GridWorld(ntiles ÷ 2, ntiles ÷ 2)
 GridWorld() = GridWorld(NTILES)
 
+FlatIndex = Integer
+
 struct CellIndex
     row::Int64
     col::Int64
 end
 
-CellIndex(g::GridWorld, i::FlatIndex) = 
+function CellIndex(rows::Integer, cols::Integer, i::FlatIndex)::CellIndex
+    """
+    returns the CellIndex for a FlatIndex in a grid with the specified
+    number of rows and columns.
+    """
+    return CellIndex(i % rows, i ÷ cols)
+end
+
+CellIndex(g::GridWorld, i::FlatIndex) = CellIndex(g.rows, g.cols, i)
 
 left(g::GridWorld, c::CellIndex)  = move_if_dest_exists(g, c, CellIndex(c.row, c.col - 1))
 right(g::GridWorld, c::CellIndex) = move_if_dest_exists(g, c, CellIndex(c.row, c.col + 1))
 up(g::GridWorld, c::CellIndex)    = move_if_dest_exists(g, c, CellIndex(c.row + 1, c.col))
 down(g::GridWorld, c::CellIndex)  = move_if_dest_exists(g, c, CellIndex(c.row - 1, c.col))
+stay(g::GridWorld, c::CellIndex)  = c
 
 function exists(g::GridWorld, c::CellIndex)::Bool
     """
@@ -60,20 +66,21 @@ function move_if_dest_exists(g::GridWorld, c::CellIndex,
     """
     if exists(g, c_new)
         return c_new
-    else if exists(g, c)            
+    elseif exists(g, c)
         return c
     else
         error("source cell index $(c) does not exist in world")
     end
 end
 
-
-FlatIndex = Integer
-
 function adjacent(a::CellIndex, b::CellIndex)::Bool
     adjacent_or_same_col = abs(a.col - b.col) <= 1
-    adjacent_or_same_row = abs(a.row - b.row) <= 1
-    return adjacent_or_same_row && adjacent_or_same_col
+    adjacent_or_same_row = abs(a.row - b.row) <= 1    
+    ## return adjacent_or_same_row && adjacent_or_same_col
+    ## TODO: disallows diagonals for now - allow them with another argument
+    coldist = abs(a.col - b.col)
+    rowdist = abs(a.row - b.row)
+    return (rowdist <= 1 && coldist == 0) || (rowdist == 0 && coldist <= 1)
 end
 
 function adjacent(rows::Integer, cols::Integer, a::FlatIndex, b::FlatIndex)
@@ -82,13 +89,6 @@ end
 
 adjacent(g::Grid, a::FlatIndex, b::FlatIndex) = adjacent(g.rows, g.cols, a, b)
 
-function CellIndex(rows::Integer, cols::Integer, i::FlatIndex)::CellIndex
-    """
-    returns the CellIndex for a FlatIndex in a grid with the specified
-    number of rows and columns.
-    """
-    return CellIndex(i % rows, i ÷ cols)
-end
 
 function flat_index(rows::Integer, cell::CellIndex)::FlatIndex
     """
@@ -98,7 +98,6 @@ function flat_index(rows::Integer, cell::CellIndex)::FlatIndex
     return cell.row + rows * cell.col
 end
 
-CellIndex(g::Grid, i::FlatIndex) = CellIndex(g.rows, g.cols, i)
 flat_index(g::Grid, cell::CellIndex) = flat_index(g.rows, cell)
 
 function connect_conditionally(g::SimpleGraph, cond::Function)::Nothing

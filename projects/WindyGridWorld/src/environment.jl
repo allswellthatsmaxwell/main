@@ -1,29 +1,27 @@
 module Environment
-export WindyGridWorld
+export WindyGridWorldEnv
 
-using Reinforce, Random
+using Reinforce, Random, Base
 
 include("./worlds.jl")
-using .Worlds: GridWorld, CellIndex
+using .Worlds: GridWorld, CellIndex, FlatIndex, flat_index, adjacent
 
 ## If true, agent can move like a king in chess. If false,
 ## agent can only move up/down/left/right.
 DIAGONAL_ALLOWED = false
-action_set(diagonal_allowed) = DiscreteSet(1:(8 if diagonal_allowed else 4))
 
 Reward = Float64
+Action = Integer
 
 mutable struct WorldState
     cell::CellIndex
-    index::FlatIndex
 end
 
 default_start_cell = CellIndex(0, 0)
 default_goal_cell = CellIndex(4, 3)
-WorldState(cell::CellIndex) = WorldState(cell, flat_index(cell))
-WorldState() = WorldState(start_cell)
+WorldState() = WorldState(default_start_cell)
 
-mutable struct WindyGridWorld <: Reinforce.AbstractEnvironment
+mutable struct WindyGridWorldEnv <: Reinforce.AbstractEnvironment
     state::WorldState
     start::CellIndex
     goal::CellIndex
@@ -31,28 +29,28 @@ mutable struct WindyGridWorld <: Reinforce.AbstractEnvironment
     world::GridWorld
 end
 
-WindyGridWorld() = WindyGridWorld(WorldState(),
+WindyGridWorldEnv() = WindyGridWorldEnv(WorldState(),
                                   default_start_cell,
                                   default_goal_cell,
                                   0,
                                   GridWorld())
 
-WindyGridWorld(rows::Integer, cols::Integer) = WindyGridWorld(
+WindyGridWorldEnv(rows::Integer, cols::Integer) = WindyGridWorldEnv(
     WorldState(),
     default_start_cell,
     default_goal_cell,
     0,
     GridWorld(rows=rows, cols=cols))
 
-WindyGridWorld(start_cell::CellIndex,
-               rows::Integer, cols::Integer) = WindyGridWorld(
+WindyGridWorldEnv(start_cell::CellIndex,
+                  rows::Integer, cols::Integer) = WindyGridWorldEnv(
                    WorldState(start_cell),
                    start_cell,
                    default_goal_cell,
                    0,
                    GridWorld(rows=rows, cols=cols))
 
-mutable struct Policy <: AbstractPolicy
+mutable struct Policy <: Reinforce.AbstractPolicy
     """
     :param Q: maps states to estimated future rewards.
     :param ε: the ε for ε-greedy methods.
@@ -61,92 +59,123 @@ mutable struct Policy <: AbstractPolicy
     """
     ε::Float64
     Q::Dict{Integer, Float64}
-    world::WindyGridWorld
+    world::GridWorld
     rng::MersenneTwister
 end
 
-function Policy(ε::Float64, world::WindyGridWorld)    
+function Policy(ε::Float64, world::GridWorld)    
     Q = Dict([(i, 0) for i in 1:(world.rows * world.cols)])
     rng = MersenneTwister()
     return Policy(ε, Q, world, rng)
 end
 
-adjacent(p::Policy, i::FlatIndex, j::FlatIndex) = adjacent(p.rows, p.cols, i, j)
-adjacent(p::Policy, i::FlatIndex, s::WorldState) = adjacent(
-    p.rows, p.cols, i, s.index)
+Worlds.adjacent(p::Policy, i::FlatIndex, j::FlatIndex) = adjacent(
+    p.rows, p.cols, i, j)
+Worlds.adjacent(p::Policy, i::FlatIndex, s::WorldState) = adjacent(
+    p.world.rows, p.world.cols, i,
+    flat_index(p.world.rows, s.cell))
 
 function find_move_for_target(world::GridWorld, current_cell::CellIndex,
-                              target_cell::CellIndex)
-    for action, move in world.actions_to_moves:
-        if move(policy.world, s.cell) == target_cell
+                              target_cell::CellIndex)::Action
+    """
+    Returns the action that will move current_cell to target_cell, or if
+    there is no such action, error.
+    """
+    for (action, move) in world.actions_to_moves
+        if move(world, current_cell) == target_cell
             return action
         end
     end
     error("Failed to find a way to move from $(current_cell) to $(target_cell)")
+end
 
+struct TVPair
+    tile::FlatIndex
+    value::Float64
+end
 
-function find_best_action(policy::Policy, s::WorldState, actions)
-    struct Pair
-        tile::FlatIndex
-        value::Float64
-    end
+# Base.length(TVPair) = 1
 
+function find_best_action(policy::Policy, s::WorldState, A::Set{Action})::Action
+    """
+    Of the actions that can be taken from state s, 
+    returns the one with the highest value.
+    """
+    
     available_actions = []    
     for (tile, value) in policy.Q
         if adjacent(policy, tile, s)
-            append!(available_actions, Pair(tile, value))
+            push!(available_actions, TVPair(tile, value))
         end
     end
-    best_value = max([p.value for p in available_actions])
-    best_tile  = [p.tile for p in available_actions
-                  if p.value == best_value][0]
-    return find_move_for_target(policy.world, CellIndex(best_tile))
+    best_value = maximum([p.value for p in available_actions])
+    best_tile::FlatIndex  = [p.tile for p in available_actions
+                             if p.value == best_value][1]
+    return find_move_for_target(policy.world,
+                                s.cell,
+                                CellIndex(policy.world, best_tile))
 end
 
-function action(policy::Policy, r::Reward, s::WorldState, actions)
-    ## return the next action
+function Reinforce.action(policy::Policy, r::Reward, s::WorldState,
+                          A::Set{Action})::Action
+    """
+    Take in the last reward `r`, current state `s`,
+    and set of valid actions `A = actions(env, s)`,
+    then return the next action `a`.
+    Uses ε-greedy, ε taken from the policy object.
+
+    :param A: Set of all actions.
+    """
     ## let's use episilon-greedy - do the best action from Q
     ## with probability 1 - ε, and a random action from it with probability ε.
     r = rand(policy.rng)
     if r < policy.ε
-        return rand(policy.rng, actions)
+        return rand(policy.rng, A)
     else
-        return find_best_action(policy, s, actions)
+        return find_best_action(policy, s, A)
     end
 end
 
-function reset!(env::WindyGridWorld)
-    env.position = env.start_cell
+function Reinforce.reset!(env::WindyGridWorldEnv)
+    env.state = WorldState(env.start)
 end
 
-function step!(env::WindyGridWorld, state::WorldState,
-               a::Int)::Tuple{Reward, WorldState}
+function Reinforce.step!(env::WindyGridWorldEnv, state::WorldState,
+                         a::Action)::Tuple{Reward, WorldState}
     """ 
     :param a: the action to take
     """
-    if finished(env, state):
+    if finished(env, state)
         reward = 0 ## is this enough?
-        s' = state
+        s′ = state
     else
         reward = -1
         ## update the state
         move::Function = env.world.actions_to_moves[a]
-        new_pos::CellIndex = move(env.world, state)
-        s' = WorldState(new_pos)
+        new_pos::CellIndex = move(env.world, state.cell)
+        s′ = WorldState(new_pos)
         ## update the approximation of the value function
     end
     env.reward = reward
-    env.state = s'
-    return reward, s'
+    env.state = s′
+    return reward, s′
 end
 
-finished(env::WindyGridWorld, s') = env.state.position == goal_cell
+Reinforce.finished(env::WindyGridWorldEnv) = env.state.cell == env.goal
+Reinforce.finished(env::WindyGridWorldEnv, s′) = finished(env)
+## Base.done(env::WindyGridWorldEnv) = finished(env)
 
-ismdp(env::WindyGridWorld) = true
-maxsteps(env::WindyGridWorld) = 0
+ismdp(env::WindyGridWorldEnv) = true
+maxsteps(env::WindyGridWorldEnv) = 0
 
- ## do I need, like, move functions?
-actions(env::WindyGridWorld, s::WorldState) = action_set(DIAGONAL_ALLOWED)
+function Reinforce.actions(diagonal_allowed::Bool)::Set{Action}
+    lim = if (diagonal_allowed) 9 else 5 end
+    return Set(1:lim)
+end
+    
+## do I need, like, move functions?
+Reinforce.actions(env::WindyGridWorldEnv,
+                  s::WorldState) = Reinforce.actions(DIAGONAL_ALLOWED)
 
 end
 
