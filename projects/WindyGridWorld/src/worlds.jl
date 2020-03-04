@@ -1,5 +1,5 @@
 module Worlds
-export GridWorld
+export GridWorld, CellIndex, FlatIndex, adjacent
 
 using LightGraphs
 NTILES = 40
@@ -7,27 +7,22 @@ NTILES = 40
 abstract type Grid end
 
 mutable struct GridWorld <: Grid
-    """
-    :param Q: maps states to estimated future rewards
-    """
     rows::Int64
     cols::Int64
     graph::SimpleGraph
-    Q::Dict{Integer, Float64}
     actions_to_moves::Dict{Integer, Function}
 end
 
-function GridWorld(rows::Int64, cols::Int64, graph::SimpleGraph,
-                   Q::Dict{Integer, Float64})
+function GridWorld(rows::Int64, cols::Int64, graph::SimpleGraph)
     moves = (left, right, up, down)
     actions_to_moves = Dict([(i, fn) for i, fn in enumerate(moves)])
-    return GridWorld(rows, cols, graph, Q, actions_to_moves)
+    return GridWorld(rows, cols, graph, actions_to_moves)
     
 end
 
 function GridWorld(rows::Int64, cols::Int64, graph::SimpleGraph)
-    Q = Dict([(i, 0) for i in 1:(rows * cols)])
-    return GridWorld(rows, cols, graph, Q)
+    
+    return GridWorld(rows, cols, graph)
 end
 
 function GridWorld(rows::Int64, cols::Int64)
