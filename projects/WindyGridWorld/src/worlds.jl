@@ -1,6 +1,7 @@
 module Worlds
 export GridWorld, CellIndex, FlatIndex, adjacent
 
+import Base: ==
 using LightGraphs
 NTILES = 40
 
@@ -36,9 +37,10 @@ struct CellIndex
     col::Int
 end
 
-using Base: ==
-Base.isequal(c1::CellIndex, c2::CellIndex) = (c1.row == c2.row) && (c1.col == c2.col)
-#Base.==(c1::CellIndex, c2::CellIndex) = isequal(c1, c2)
+Base.isequal(c1::CellIndex, c2::CellIndex) = c1 == c2
+
+==(c1::CellIndex, c2::CellIndex) = (c1.row == c2.row) && (c1.col == c2.col)
+
 Base.hash(c::CellIndex, h::UInt) = hash(c.row, h) * hash(c.col, h)
 
 function CellIndex(rows::Int, cols::Int, i::FlatIndex)::CellIndex
@@ -61,7 +63,7 @@ function exists(g::GridWorld, c::CellIndex)::Bool
     """
     Returns whether c is an existing position in the GridWorld.
     """
-    return 0 <= c.row <= g.rows && 0 <= c.col <= g.cols
+    return 0 <= c.row < g.rows && 0 <= c.col < g.cols
 end
 
 function move_if_dest_exists(g::GridWorld, c::CellIndex,

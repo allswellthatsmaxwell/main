@@ -2,7 +2,7 @@ module Environment
 export WindyGridWorldEnv
 
 using Reinforce, Random, Base
-using Base: ==
+import Base: ==
 
 include("./worlds.jl")
 using .Worlds: GridWorld, CellIndex, FlatIndex, flat_index, adjacent
@@ -23,8 +23,8 @@ end
 
 WorldState() = WorldState(default_start_cell)
 
-Base.isequal(s1::WorldState, s2::WorldState) = isequal(s1.cell, s2.cell)
-#Base.==(s1::WorldState, s2::WorldState) = isequal(s1, s2)
+Base.isequal(s1::WorldState, s2::WorldState) = s1.cell == s2.cell
+==(s1::WorldState, s2::WorldState) = s1.cell == s2.cell
 Base.hash(s::WorldState, h::UInt) = Base.hash(s.cell, h)
 
 mutable struct WindyGridWorldEnv <: Reinforce.AbstractEnvironment
@@ -87,26 +87,29 @@ Base.show(io::IO, state::WorldState) = print("$(state.cell)")
 
 function Reinforce.update!(policy::Policy, s::WorldState,
                            a::Action, r::Reward, s′::WorldState,
-                           A::Set{Action})::Nothing
+                           A::Set{Action})
     Q = policy.Q
-    best_action = _find_best_action(policy, s′, A)
+    best_action = _find_best_action(policy, s′)
     max_action_value = Q[s′][best_action]
-    new = Q[s][a] + policy.α * (r + policy.γ * max_action_value - Q[s][a])
-    println(new)
-    println(typeof(new))    
-    Q[s][a] = new::Float64
+    Q[s][a] = Q[s][a] + policy.α * (r + policy.γ * max_action_value - Q[s][a])
+end
+
+function _initialize_policy(world::GridWorld,
+                            A::Set{Action})::Dict{WorldState,
+                                                  Dict{Action, Float64}}
+    Q = Dict()    
+    for row in 0:(world.rows - 1)
+        for col in 0:(world.cols - 1)
+            actions_to_values = Dict([(a, 0.0) for a in A])
+            Q[WorldState(CellIndex(row, col))] = actions_to_values
+        end
+    end    
+    return Q
 end
 
 function Policy(ε::Float64, α::Float64, γ::Float64,
                 world::GridWorld, A::Set{Action})
-    Q = Dict([(WorldState(CellIndex(world, i)),
-               Dict())
-              for i::FlatIndex in 0:(world.rows * world.cols - 1)])
-    for (state, actions_to_values) in Q
-        for action in A
-            actions_to_values[action] = 0
-        end
-    end
+    Q = _initialize_policy(world, A)
     rng = MersenneTwister()
     return Policy(ε, α, γ, Q, world, rng)
 end
@@ -131,16 +134,18 @@ function _find_move_for_target(world::GridWorld, current_cell::CellIndex,
     error("Failed to find a way to move from $(current_cell) to $(target_cell)")
 end
 
-function _find_best_action(policy::Policy, s::WorldState, A::Set{Action})::Action
+function _find_best_action(policy::Policy, s::WorldState)::Action
     """
     Of the actions that can be taken from state s, 
     returns the one with the highest value. If there are multiple
     actions with the highest value, returns a random one of those.
     """
-    best_value = maximum([value for (action, value) in policy.Q[s]])
-    best_actions = [action for (action, value) in policy.Q[s]
+    A = policy.Q[s] ## error is here
+    best_value = maximum([value for (action, value) in A])
+    best_actions = [action for (action, value) in A
                     if value == best_value]
     return rand(policy.rng, best_actions)
+    
 end
 
 function Reinforce.action(policy::Policy, r::Reward, s::WorldState,
@@ -159,7 +164,7 @@ function Reinforce.action(policy::Policy, r::Reward, s::WorldState,
     if r < policy.ε
         return rand(policy.rng, A)
     else
-        return _find_best_action(policy, s, A)
+        return _find_best_action(policy, s)
     end
 end
 
