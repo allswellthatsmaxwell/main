@@ -9,22 +9,21 @@ function main()
     env = WindyGridWorldEnv(5, 4)
     A = Reinforce.actions(false)
     policy = Policy(0.1, 0.05, 1.0, env.world, A)
-    run_one_episode(env, policy, A, monitoring = true)
-    #Reinforce.run_episode(env, policy) do (s, a, r, s′)
-    #    print("Taking $(a) transitioned state $(s) to state $(s′)" *
-    #          "and gave a reward of $(r).")
-    #    ## Use s, a, r, s′ to update the policy's value function
-    #    ## ah but no it's too late! I want to update during the episode.
-    #end
+    for _ in 1:1000
+        run_one_episode(env, policy, A, monitoring = false)
+    end
+    print_value_function(policy)
+    run_one_episode(env, policy, A, showpath = true)
 end
 
 function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
-                         A::Set{Action}; monitoring = false)
+                         A::Set{Action}; monitoring = false, showpath = false)
     s = env.state
     r::Reward = 0.0
     i = 0
     monitoring_freq = 100
-    while !Reinforce.finished(env)
+    if showpath show_position(env, s) end
+    while !Reinforce.finished(env)        
         a = Reinforce.action(policy, r, s, A)
         r, s′ = Reinforce.step!(env, s, a)
         update!(policy, s, a, r, s′, A)
@@ -33,10 +32,26 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
         if monitoring && i % monitoring_freq == 0
             print_value_function(policy)
         end
+        if showpath show_position(env, s′) end
     end
-    if monitoring
-        print_value_function(policy)
+    reset!(env)
+end
+
+function show_position(env::WindyGridWorldEnv, s::WorldState)    
+    for col in 0:(env.world.cols - 1)
+        for row in 0:(env.world.rows - 1)
+            cell = CellIndex(row, col)
+            if s == WorldState(cell)
+                print("○")
+            elseif cell == env.goal
+                print("✗")                
+            else
+                print("■")
+            end
+        end
+        println()
     end
+    println()
 end
 
 main()
