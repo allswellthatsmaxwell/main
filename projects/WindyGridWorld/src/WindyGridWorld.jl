@@ -55,8 +55,8 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
 end
 
 function show_position(env::WindyGridWorldEnv, s::WorldState)        
-    for row in 0:(env.world.rows - 1)
-        for col in 0:(env.world.cols - 1)
+    for row in 1:env.world.rows
+        for col in 1:env.world.cols
             cell = CellIndex(row, col)
             if s == WorldState(cell)
                 print("○")

@@ -14,8 +14,8 @@ DIAGONAL_ALLOWED = false
 Reward = Float64
 Action = Int
 
-default_start_cell = CellIndex(0, 0)
-default_goal_cell = CellIndex(4, 3)
+default_start_cell = CellIndex(1, 1)
+default_goal_cell = CellIndex(5, 4)
 
 struct WorldState
     cell::CellIndex
@@ -106,8 +106,8 @@ function _initialize_policy(world::GridWorld,
                             A::Set{Action})::Dict{WorldState,
                                                   Dict{Action, Float64}}
     Q = Dict()    
-    for row in 0:(world.rows - 1)
-        for col in 0:(world.cols - 1)
+    for row in 1:world.rows
+        for col in 1:world.cols
             actions_to_values = Dict([(a, 0.0) for a in A])
             Q[WorldState(CellIndex(row, col))] = actions_to_values
         end

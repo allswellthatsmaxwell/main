@@ -48,7 +48,7 @@ function CellIndex(rows::Int, cols::Int, i::FlatIndex)::CellIndex
     returns the CellIndex for a FlatIndex in a grid with the specified
     number of rows and columns.
     """
-    return CellIndex(i % rows, i ÷ cols)
+    return CellIndex(i % rows, (i ÷ (cols + 1)) + 1)
 end
 
 CellIndex(g::GridWorld, i::FlatIndex) = CellIndex(g.rows, g.cols, i)
@@ -63,7 +63,7 @@ function exists(g::GridWorld, c::CellIndex)::Bool
     """
     Returns whether c is an existing position in the GridWorld.
     """
-    return 0 <= c.row < g.rows && 0 <= c.col < g.cols
+    return 1 <= c.row <= g.rows && 1 <= c.col <= g.cols
 end
 
 function move_if_dest_exists(g::GridWorld, c::CellIndex,
@@ -102,7 +102,7 @@ function flat_index(rows::Int, cell::CellIndex)::FlatIndex
     returns the FlatIndex for a CellIndex in a grid with the specified
     number of rows.
     """
-    return cell.row + rows * cell.col
+    return cell.row + rows * (cell.col - 1)
 end
 
 flat_index(g::Grid, cell::CellIndex) = flat_index(g.rows, cell)
