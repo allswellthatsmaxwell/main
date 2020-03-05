@@ -3,13 +3,30 @@ include("./environment.jl")
 using .Environment: WindyGridWorldEnv, GridWorld, Policy, reset!,
     Reinforce.finished, Reinforce.actions, Action, Reward, print_value_function, CellIndex,
     WorldState
-using Reinforce, Base
+using Reinforce, Base, ArgParse
+
+defaults = Dict("rows" => 5, "cols" => 4, "goalrow" => 4, "goalcol" => 3)
+
+function read_arg(arg, parsed_args)
+    
+    val = parsed_args[arg]
+    if val == nothing     
+        return defaults[arg]
+    else
+        return val
+    end
+end
 
 function main()
-    env = WindyGridWorldEnv(5, 4)
+    parsed_args = parse_args(s)
+    rows = read_arg("rows", parsed_args)
+    cols = read_arg("cols", parsed_args)
+    goalrow = read_arg("goalrow", parsed_args)
+    goalcol = read_arg("goalcol", parsed_args)
+    env = WindyGridWorldEnv(rows, cols, CellIndex(goalrow, goalcol))
     A = Reinforce.actions(false)
     policy = Policy(0.1, 0.05, 1.0, env.world, A)
-    for _ in 1:1000
+    for _ in 1:10000
         run_one_episode(env, policy, A, monitoring = false)
     end
     print_value_function(policy)
@@ -37,9 +54,9 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
     reset!(env)
 end
 
-function show_position(env::WindyGridWorldEnv, s::WorldState)    
-    for col in 0:(env.world.cols - 1)
-        for row in 0:(env.world.rows - 1)
+function show_position(env::WindyGridWorldEnv, s::WorldState)        
+    for row in 0:(env.world.rows - 1)
+        for col in 0:(env.world.cols - 1)
             cell = CellIndex(row, col)
             if s == WorldState(cell)
                 print("○")
@@ -52,6 +69,22 @@ function show_position(env::WindyGridWorldEnv, s::WorldState)
         println()
     end
     println()
+end
+
+s = ArgParseSettings()
+@add_arg_table! s begin
+    "--rows"
+        help = "Number of rows in the world."
+        arg_type = Int
+    "--cols"
+        help = "Number of columns in the world."
+        arg_type = Int
+    "--goalrow"
+        help = "row to place the goal at."
+        arg_type = Int
+    "--goalcol"
+        help = "column to place the goal at."
+        arg_type = Int
 end
 
 main()

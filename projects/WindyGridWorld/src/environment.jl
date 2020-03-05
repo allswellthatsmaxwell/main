@@ -49,13 +49,21 @@ WindyGridWorldEnv(rows::Int, cols::Int) = WindyGridWorldEnv(
     0,
     GridWorld(rows, cols))
 
+WindyGridWorldEnv(rows::Int, cols::Int, goal::CellIndex) = WindyGridWorldEnv(
+    WorldState(default_start_cell),
+    default_start_cell,
+    goal,
+    0,
+    GridWorld(rows, cols))
+
+
 WindyGridWorldEnv(start_cell::CellIndex,
                   rows::Int, cols::Int) = WindyGridWorldEnv(
                    WorldState(start_cell),
                    start_cell,
                    default_goal_cell,
                    0,
-                   GridWorld(rows=rows, cols=cols))
+                   GridWorld(rows, cols))
 
 mutable struct Policy <: Reinforce.AbstractPolicy
     """
