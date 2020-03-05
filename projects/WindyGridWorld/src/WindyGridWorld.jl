@@ -3,28 +3,44 @@ include("./environment.jl")
 using .Environment: WindyGridWorldEnv, GridWorld, Policy, reset!,
     Reinforce.finished, Reinforce.actions, Action, Reward, print_value_function, CellIndex,
     WorldState
-using Reinforce, Base
+using Reinforce, Base, ArgParse
+
+defaults = Dict("rows" => 5, "cols" => 4, "goalrow" => 4, "goalcol" => 3)
+
+function read_arg(arg, parsed_args)
+    
+    val = parsed_args[arg]
+    if val == nothing     
+        return defaults[arg]
+    else
+        return val
+    end
+end
 
 function main()
-    env = WindyGridWorldEnv(5, 4)
+    parsed_args = parse_args(s)
+    rows = read_arg("rows", parsed_args)
+    cols = read_arg("cols", parsed_args)
+    goalrow = read_arg("goalrow", parsed_args)
+    goalcol = read_arg("goalcol", parsed_args)
+    env = WindyGridWorldEnv(rows, cols, CellIndex(goalrow, goalcol))
     A = Reinforce.actions(false)
     policy = Policy(0.1, 0.05, 1.0, env.world, A)
-    run_one_episode(env, policy, A, monitoring = true)
-    #Reinforce.run_episode(env, policy) do (s, a, r, s′)
-    #    print("Taking $(a) transitioned state $(s) to state $(s′)" *
-    #          "and gave a reward of $(r).")
-    #    ## Use s, a, r, s′ to update the policy's value function
-    #    ## ah but no it's too late! I want to update during the episode.
-    #end
+    for _ in 1:10000
+        run_one_episode(env, policy, A, monitoring = false)
+    end
+    print_value_function(policy)
+    run_one_episode(env, policy, A, showpath = true)
 end
 
 function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
-                         A::Set{Action}; monitoring = false)
+                         A::Set{Action}; monitoring = false, showpath = false)
     s = env.state
     r::Reward = 0.0
     i = 0
     monitoring_freq = 100
-    while !Reinforce.finished(env)
+    if showpath show_position(env, s) end
+    while !Reinforce.finished(env)        
         a = Reinforce.action(policy, r, s, A)
         r, s′ = Reinforce.step!(env, s, a)
         update!(policy, s, a, r, s′, A)
@@ -33,10 +49,42 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
         if monitoring && i % monitoring_freq == 0
             print_value_function(policy)
         end
+        if showpath show_position(env, s′) end
     end
-    if monitoring
-        print_value_function(policy)
+    reset!(env)
+end
+
+function show_position(env::WindyGridWorldEnv, s::WorldState)        
+    for row in 0:(env.world.rows - 1)
+        for col in 0:(env.world.cols - 1)
+            cell = CellIndex(row, col)
+            if s == WorldState(cell)
+                print("○")
+            elseif cell == env.goal
+                print("✗")                
+            else
+                print("■")
+            end
+        end
+        println()
     end
+    println()
+end
+
+s = ArgParseSettings()
+@add_arg_table! s begin
+    "--rows"
+        help = "Number of rows in the world."
+        arg_type = Int
+    "--cols"
+        help = "Number of columns in the world."
+        arg_type = Int
+    "--goalrow"
+        help = "row to place the goal at."
+        arg_type = Int
+    "--goalcol"
+        help = "column to place the goal at."
+        arg_type = Int
 end
 
 main()
