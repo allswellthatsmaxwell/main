@@ -7,36 +7,41 @@ NTILES = 40
 abstract type Grid end
 
 mutable struct GridWorld <: Grid
-    rows::Int64
-    cols::Int64
+    rows::Int
+    cols::Int
     graph::SimpleGraph
-    actions_to_moves::Dict{Integer, Function}
+    actions_to_moves::Dict{Int, Function}
 end
 
-function GridWorld(rows::Int64, cols::Int64, graph::SimpleGraph)
+function GridWorld(rows::Int, cols::Int, graph::SimpleGraph)
     moves = (left, right, up, down, stay)
     actions_to_moves = Dict([(i, fn) for (i, fn) in enumerate(moves)])
     return GridWorld(rows, cols, graph, actions_to_moves)
     
 end
 
-function GridWorld(rows::Int64, cols::Int64)
+function GridWorld(rows::Int, cols::Int)
     graph = SimpleGraph(rows * cols)
     connect_adjacent(graph, rows, cols)
     return GridWorld(rows, cols, graph)
 end
 
-GridWorld(ntiles::Int64) = GridWorld(ntiles ÷ 2, ntiles ÷ 2)
+GridWorld(ntiles::Int) = GridWorld(ntiles ÷ 2, ntiles ÷ 2)
 GridWorld() = GridWorld(NTILES)
 
-FlatIndex = Integer
+FlatIndex = Int
 
 struct CellIndex
-    row::Int64
-    col::Int64
+    row::Int
+    col::Int
 end
 
-function CellIndex(rows::Integer, cols::Integer, i::FlatIndex)::CellIndex
+using Base: ==
+Base.isequal(c1::CellIndex, c2::CellIndex) = (c1.row == c2.row) && (c1.col == c2.col)
+#Base.==(c1::CellIndex, c2::CellIndex) = isequal(c1, c2)
+Base.hash(c::CellIndex, h::UInt) = hash(c.row, h) * hash(c.col, h)
+
+function CellIndex(rows::Int, cols::Int, i::FlatIndex)::CellIndex
     """
     returns the CellIndex for a FlatIndex in a grid with the specified
     number of rows and columns.
@@ -83,14 +88,14 @@ function adjacent(a::CellIndex, b::CellIndex)::Bool
     return (rowdist <= 1 && coldist == 0) || (rowdist == 0 && coldist <= 1)
 end
 
-function adjacent(rows::Integer, cols::Integer, a::FlatIndex, b::FlatIndex)
+function adjacent(rows::Int, cols::Int, a::FlatIndex, b::FlatIndex)
     return adjacent(CellIndex(rows, cols, a), CellIndex(rows, cols, b))
 end
 
 adjacent(g::Grid, a::FlatIndex, b::FlatIndex) = adjacent(g.rows, g.cols, a, b)
 
 
-function flat_index(rows::Integer, cell::CellIndex)::FlatIndex
+function flat_index(rows::Int, cell::CellIndex)::FlatIndex
     """
     returns the FlatIndex for a CellIndex in a grid with the specified
     number of rows.
@@ -102,7 +107,7 @@ flat_index(g::Grid, cell::CellIndex) = flat_index(g.rows, cell)
 
 function connect_conditionally(g::SimpleGraph, cond::Function)::Nothing
     """
-    :param cond: a function Integer -> Integer -> Bool that takes two vertices 
+    :param cond: a function Int -> Int -> Bool that takes two vertices 
     and returns whether they should be connected.
     """    
     for v ∈ vertices(g)
@@ -114,7 +119,7 @@ function connect_conditionally(g::SimpleGraph, cond::Function)::Nothing
     end
 end
 
-function connect_adjacent(g::SimpleGraph, rows::Integer, cols::Integer)::Nothing
+function connect_adjacent(g::SimpleGraph, rows::Int, cols::Int)::Nothing
     cond(u, v) = adjacent(rows, cols, u, v) 
     connect_conditionally(g, cond)
 end

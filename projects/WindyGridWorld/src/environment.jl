@@ -2,6 +2,7 @@ module Environment
 export WindyGridWorldEnv
 
 using Reinforce, Random, Base
+using Base: ==
 
 include("./worlds.jl")
 using .Worlds: GridWorld, CellIndex, FlatIndex, flat_index, adjacent
@@ -11,15 +12,20 @@ using .Worlds: GridWorld, CellIndex, FlatIndex, flat_index, adjacent
 DIAGONAL_ALLOWED = false
 
 Reward = Float64
-Action = Integer
-
-mutable struct WorldState
-    cell::CellIndex
-end
+Action = Int
 
 default_start_cell = CellIndex(0, 0)
 default_goal_cell = CellIndex(4, 3)
+
+struct WorldState
+    cell::CellIndex
+end
+
 WorldState() = WorldState(default_start_cell)
+
+Base.isequal(s1::WorldState, s2::WorldState) = isequal(s1.cell, s2.cell)
+#Base.==(s1::WorldState, s2::WorldState) = isequal(s1, s2)
+Base.hash(s::WorldState, h::UInt) = Base.hash(s.cell, h)
 
 mutable struct WindyGridWorldEnv <: Reinforce.AbstractEnvironment
     state::WorldState
@@ -29,21 +35,22 @@ mutable struct WindyGridWorldEnv <: Reinforce.AbstractEnvironment
     world::GridWorld
 end
 
-WindyGridWorldEnv() = WindyGridWorldEnv(WorldState(),
-                                  default_start_cell,
-                                  default_goal_cell,
-                                  0,
-                                  GridWorld())
-
-WindyGridWorldEnv(rows::Integer, cols::Integer) = WindyGridWorldEnv(
+WindyGridWorldEnv() = WindyGridWorldEnv(
     WorldState(),
     default_start_cell,
     default_goal_cell,
     0,
-    GridWorld(rows=rows, cols=cols))
+    GridWorld())
+
+WindyGridWorldEnv(rows::Int, cols::Int) = WindyGridWorldEnv(
+    WorldState(),
+    default_start_cell,
+    default_goal_cell,
+    0,
+    GridWorld(rows, cols))
 
 WindyGridWorldEnv(start_cell::CellIndex,
-                  rows::Integer, cols::Integer) = WindyGridWorldEnv(
+                  rows::Int, cols::Int) = WindyGridWorldEnv(
                    WorldState(start_cell),
                    start_cell,
                    default_goal_cell,
@@ -66,18 +73,35 @@ mutable struct Policy <: Reinforce.AbstractPolicy
     rng::MersenneTwister
 end
 
-function update!(policy::Policy,
-                 s::WorldState, a::Action, r::Reward, s′::WorldState)::Nothing
+function print_value_function(policy::Policy)
+    parts = []
+    for (state, actions_to_values) in policy.Q
+        println(state)
+        for (action, value) in actions_to_values
+            println("\t$(action): $(value)")
+        end
+    end
+end
+
+Base.show(io::IO, state::WorldState) = print("$(state.cell)")
+
+function Reinforce.update!(policy::Policy, s::WorldState,
+                           a::Action, r::Reward, s′::WorldState,
+                           A::Set{Action})::Nothing
     Q = policy.Q
-    best_action = _find_best_action(policy, s′, a)
+    best_action = _find_best_action(policy, s′, A)
     max_action_value = Q[s′][best_action]
-    Q[s][a] = Q[s][a] + policy.α * (r + γ * max_action_value - Q[s][a])
+    new = Q[s][a] + policy.α * (r + policy.γ * max_action_value - Q[s][a])
+    println(new)
+    println(typeof(new))    
+    Q[s][a] = new::Float64
 end
 
 function Policy(ε::Float64, α::Float64, γ::Float64,
                 world::GridWorld, A::Set{Action})
-    Q = Dict([(CellIndex(i), Dict())
-              for i::FlatIndex in 1:(world.rows * world.cols)])
+    Q = Dict([(WorldState(CellIndex(world, i)),
+               Dict())
+              for i::FlatIndex in 0:(world.rows * world.cols - 1)])
     for (state, actions_to_values) in Q
         for action in A
             actions_to_values[action] = 0
@@ -105,12 +129,6 @@ function _find_move_for_target(world::GridWorld, current_cell::CellIndex,
         end
     end
     error("Failed to find a way to move from $(current_cell) to $(target_cell)")
-end
-
-struct SATuple
-    state::WorldState
-    action::Action
-    value::Float64
 end
 
 function _find_best_action(policy::Policy, s::WorldState, A::Set{Action})::Action
@@ -155,10 +173,10 @@ function Reinforce.step!(env::WindyGridWorldEnv, state::WorldState,
     :param a: the action to take
     """
     if finished(env, state)
-        reward = 0 ## is this enough?
+        reward = 0.0 ## is this enough?
         s′ = state
     else
-        reward = -1
+        reward = -1.0
         move::Function = env.world.actions_to_moves[a]
         new_pos::CellIndex = move(env.world, state.cell)
         s′ = WorldState(new_pos)
