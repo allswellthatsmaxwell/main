@@ -5,7 +5,9 @@ version = "0.1.0"
 
 [deps]
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 FunctionWrappers = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
+GR = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
 LightGraphs = "093fc24a-ae57-5d10-9952-331d41423f4d"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"

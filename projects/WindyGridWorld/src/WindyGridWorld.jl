@@ -18,12 +18,7 @@ function read_arg(arg, parsed_args)
     end
 end
 
-function main()
-    parsed_args = parse_args(s)
-    rows = read_arg("rows", parsed_args)
-    cols = read_arg("cols", parsed_args)
-    goalrow = read_arg("goalrow", parsed_args)
-    goalcol = read_arg("goalcol", parsed_args)
+function main(rows::Int, cols::Int, goalrow::Int, goalcol::Int)
     env = WindyGridWorldEnv(rows, cols, CellIndex(goalrow, goalcol))
     A = Reinforce.actions(false)
     policy = Policy(0.1, 0.05, 1.0, env.world, A)
@@ -57,46 +52,67 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
     reset!(env)
 end
 
-s = ArgParseSettings()
-@add_arg_table! s begin
-    "--rows"
-        help = "Number of rows in the world."
-        arg_type = Int
-    "--cols"
-        help = "Number of columns in the world."
-        arg_type = Int
-    "--goalrow"
-        help = "row to place the goal at."
-        arg_type = Int
-    "--goalcol"
-        help = "column to place the goal at."
-        arg_type = Int
-end
-
 function draw_image(env::WindyGridWorldEnv, s::WorldState)
     shapes = []
-    row_vec = 1:env.world.rows
-    col_vec = 1:env.world.cols
-    for row in row_vec
-        for col in col_vec
+    colors = []
+    row_vec = []
+    col_vec = []
+    for row in 1:env.world.rows
+        for col in 1:env.world.cols            
             cell = CellIndex(row, col)
             if s == WorldState(cell)
-                shape = "circle"
+                shape = :circle
+                color = :red
             elseif cell == env.goal
-                shape = "star4"
+                shape = :star4
+                color = :green
             else
-                shape = "square"
+                shape = :square
+                color = :purple
             end
+            push!(row_vec, row)
+            push!(col_vec, col)
             push!(shapes, shape)
+            push!(colors, color)
         end
     end
-    p = scatter(row_vec, col_vec, lab = shapes, show = false)
-    savefig(p, "intermediate/p.png")
+    println("drawing")
+    p = scatter(row_vec, col_vec, marker = shapes, color = colors,
+                show = false);
+    savefig(p, "intermediate/p.html")
 end
 
 
+s = ArgParseSettings()
+@add_arg_table! s begin
+"--rows"
+    help = "Number of rows in the world."
+    arg_type = Int
+"--cols"
+    help = "Number of columns in the world."
+    arg_type = Int
+"--goalrow"
+    help = "row to place the goal at."
+    arg_type = Int
+"--goalcol"
+    help = "column to place the goal at."
+    arg_type = Int
+end
 
-main()
+parsed_args = parse_args(s)    
+rows = read_arg("rows", parsed_args)
+cols = read_arg("cols", parsed_args)
+goalrow = read_arg("goalrow", parsed_args)
+goalcol = read_arg("goalcol", parsed_args)
+
+#markers = filter((m->begin
+#                m in Plots.supported_markers()
+#                  end), Plots._shape_keys)
+#println(markers)
+
+## Plots.gr()
+plotly()
+main(rows, cols, goalrow, goalcol)
 
 end
 
