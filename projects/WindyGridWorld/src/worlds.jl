@@ -5,9 +5,9 @@ import Base: ==
 using LightGraphs
 NTILES = 40
 
-abstract type Grid end
+abstract type World end
 
-mutable struct GridWorld <: Grid
+mutable struct GridWorld <: World
     rows::Int
     cols::Int
     graph::SimpleGraph
@@ -94,7 +94,7 @@ function adjacent(rows::Int, cols::Int, a::FlatIndex, b::FlatIndex)
     return adjacent(CellIndex(rows, cols, a), CellIndex(rows, cols, b))
 end
 
-adjacent(g::Grid, a::FlatIndex, b::FlatIndex) = adjacent(g.rows, g.cols, a, b)
+adjacent(g::World, a::FlatIndex, b::FlatIndex) = adjacent(g.rows, g.cols, a, b)
 
 
 function flat_index(rows::Int, cell::CellIndex)::FlatIndex
@@ -105,7 +105,7 @@ function flat_index(rows::Int, cell::CellIndex)::FlatIndex
     return cell.row + rows * (cell.col - 1)
 end
 
-flat_index(g::Grid, cell::CellIndex) = flat_index(g.rows, cell)
+flat_index(g::World, cell::CellIndex) = flat_index(g.rows, cell)
 
 function connect_conditionally(g::SimpleGraph, cond::Function)::Nothing
     """
