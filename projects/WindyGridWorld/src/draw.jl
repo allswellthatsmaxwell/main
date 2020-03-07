@@ -4,10 +4,6 @@ module Draw
 include("./environment.jl")
 using .Environment: WindyGridWorldEnv, GridWorld, WorldState, CellIndex
 
-using Plots
-
-
-
 function draw_unicode(env::WindyGridWorldEnv, s::WorldState)        
     for row in 1:env.world.rows
         for col in 1:env.world.cols

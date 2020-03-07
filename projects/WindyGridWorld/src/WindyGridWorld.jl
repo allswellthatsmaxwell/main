@@ -1,11 +1,11 @@
 module WindyGridWorld
 include("./environment.jl")
-include("./draw.jl")
+# include("./draw.jl")
 using .Environment: WindyGridWorldEnv, GridWorld, Policy, reset!,
     Reinforce.finished, Reinforce.actions, Action, Reward, print_value_function, CellIndex,
     WorldState
-# using .Draw: draw_image
-using Reinforce, Base, ArgParse, Plots
+using Reinforce, Base, ArgParse, Makie, AbstractPlotting, CairoMakie, FileIO
+using Base.Iterators: repeated
 
 defaults = Dict("rows" => 5, "cols" => 4, "goalrow" => 4, "goalcol" => 3)
 
@@ -50,6 +50,16 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
         if showpath show_position(env, s′) end
     end
     reset!(env)
+end
+
+function draw_image(env::WindyGridWorldEnv, s::WorldState)
+    scene = Scene(resolution = (1000, 1000))
+    grid = repeated(1:env.world.rows, env.world.cols)
+    grid = hcat([[true for i in list] for list in grid]...)
+    heatmap!(scene, grid, linewidth = 1,
+             scale_plot = false, show_axis = false, show = false);
+    outfile = File(format"PNG", "intermediate/scene.png")
+    FileIO.save(outfile, scene)
 end
 
 function draw_image(env, s)
@@ -128,13 +138,7 @@ cols = read_arg("cols", parsed_args)
 goalrow = read_arg("goalrow", parsed_args)
 goalcol = read_arg("goalcol", parsed_args)
 
-#markers = filter((m->begin
-#                m in Plots.supported_markers()
-#                  end), Plots._shape_keys)
-#println(markers)
-
-## Plots.gr()
-plotly()
+CairoMakie.activate!()
 main(rows, cols, goalrow, goalcol)
 
 end
