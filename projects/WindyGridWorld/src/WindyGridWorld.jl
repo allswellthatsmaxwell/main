@@ -1,6 +1,6 @@
 module WindyGridWorld
 include("./environment.jl")
-# include("./draw.jl")
+include("./draw.jl")
 using .Environment: WindyGridWorldEnv, GridWorld, Policy, reset!,
     Reinforce.finished, Reinforce.actions, Action, Reward, print_value_function, CellIndex,
     WorldState
@@ -52,33 +52,56 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
     reset!(env)
 end
 
-function draw_image(env::WindyGridWorldEnv, s::WorldState)
-    shapes = []
-    colors = []
-    row_vec = []
-    col_vec = []
+function draw_image(env, s)
+    makevars() = Dict("x" => [], "y" => [])    
+    kinds = ("all", "goal", "current")    
+    attrs = Dict([(k, Dict()) for k in kinds])    
+    attrs["current"]["shape"] = :circle
+    attrs["goal"]["shape"] = :cross
+    attrs["all"]["shape"] = :square
+
+    attrs["current"]["color"] = :red
+    attrs["goal"]["color"] = :green
+    attrs["all"]["color"] = :purple
+    
+    xs = []
+    ys = []
+    zs = []
+    indices = Dict([(k, makevars()) for k in kinds])
     for row in 1:env.world.rows
-        for col in 1:env.world.cols            
+        for col in 1:env.world.cols
             cell = CellIndex(row, col)
             if s == WorldState(cell)
-                shape = :circle
-                color = :red
+                target_kind = "current"                               
             elseif cell == env.goal
-                shape = :star4
-                color = :green
+                target_kind = "goal"
             else
-                shape = :square
-                color = :purple
+                target_kind = "all"
             end
-            push!(row_vec, row)
-            push!(col_vec, col)
-            push!(shapes, shape)
-            push!(colors, color)
+            push!(indices[target_kind]["x"], row)
+            push!(indices[target_kind]["y"], col)
+
+            push!(xs, row)
+            push!(ys, col)
+            push!(zs, target_kind)
         end
     end
     println("drawing")
-    p = scatter(row_vec, col_vec, marker = shapes, color = colors,
-                show = false);
+    z = reshape(zs, env.world.rows, env.world.cols)
+    for var in (xs, ys, z)
+        println(var)
+    end
+    p = heatmap(xs, ys, z, yflip = true,
+                c = cgrad([:red, :blue, :green]))# l = (1, :black),
+                #grid = true, axiscolor = nothing, size = (600, 500))
+    # p = plot()
+    #for kind in kinds
+    #    inds = indices[kind]
+    #    att = attrs[kind]
+    #    scatter!(p, inds["x"], inds["y"],
+    #             markershape = att["shape"], color = att["color"],
+    #             markersize = 20, show = false);
+    #end
     savefig(p, "intermediate/p.html")
 end
 
