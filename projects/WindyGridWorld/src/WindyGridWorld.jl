@@ -4,7 +4,7 @@ include("./environment.jl")
 using .Environment: WindyGridWorldEnv, GridWorld, Policy, reset!,
     Reinforce.finished, Reinforce.actions, Action, Reward, print_value_function, CellIndex,
     WorldState
-using Reinforce, Base, ArgParse, Makie, AbstractPlotting, CairoMakie, FileIO
+using Reinforce, Base, ArgParse, Makie, CairoMakie, FileIO
 using Base.Iterators: repeated
 
 defaults = Dict("rows" => 5, "cols" => 4, "goalrow" => 4, "goalcol" => 3)
@@ -55,9 +55,14 @@ end
 function draw_image(env::WindyGridWorldEnv, s::WorldState)
     scene = Scene(resolution = (1000, 1000))
     grid = repeated(1:env.world.rows, env.world.cols)
-    grid = hcat([[true for i in list] for list in grid]...)
-    heatmap!(scene, grid, linewidth = 1,
-             scale_plot = false, show_axis = false, show = false);
+    grid = hcat([[1 for i in list] for list in grid]...)
+    grid[s.cell.row, s.cell.col] = 2
+    grid[env.goal.row, env.goal.col] = 3
+    println(grid)
+    Makie.heatmap!(scene, grid, linewidth = 1,
+                   scale_plot = false, show_axis = false, show = false);
+    #scene = Makie.heatmap(1:env.world.rows, 1:env.world.cols, grid,
+    #                      scale_plot = false, show_axis = false, show = false)
     outfile = File(format"PNG", "intermediate/scene.png")
     FileIO.save(outfile, scene)
 end
