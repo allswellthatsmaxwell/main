@@ -89,12 +89,22 @@ function save(policy::Policy, path::String; name::String = "A")
     end
 end
 
-function save(policy::Policy, path::String)
-    for (state, actions) in policy.Q
+function to_csv(Q::Dict{WorldState, Dict{Action, Float64}}, path::String)
+    rows = []
+    for (state, actions) in Q
         for (action, value) in actions
-            5
+            row = join([state.cell.row, state.cell.col, action, value], ",")
+            push!(rows, row)
         end
     end
+    csv = join(rows, "\n")
+    open(path, "w") do io
+        write(io, csv)
+    end    
+end
+
+function save(policy::Policy, path::String)
+    to_csv(policy.Q, path)
 end
 
 function load(path::String; name::String = "A")

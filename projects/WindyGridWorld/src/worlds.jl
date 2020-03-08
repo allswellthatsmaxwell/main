@@ -1,3 +1,4 @@
+
 module Worlds
 export GridWorld, CellIndex, FlatIndex, adjacent
 
@@ -36,6 +37,8 @@ struct CellIndex
     row::Int
     col::Int
 end
+
+## show(io::IO, c::CellIndex) = print(io, "($(c.row), $(c.col))")
 
 Base.isequal(c1::CellIndex, c2::CellIndex) = c1 == c2
 
