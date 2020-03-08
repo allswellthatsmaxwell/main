@@ -3,7 +3,7 @@ include("./environment.jl")
 # include("./draw.jl")
 using .Environment: WindyGridWorldEnv, GridWorld, Policy, reset!,
     Reinforce.finished, Reinforce.actions, Action, Reward, print_value_function, CellIndex,
-    WorldState
+    WorldState, save, load
 using Reinforce, Base, ArgParse, Makie, CairoMakie, FileIO
 using Base.Iterators: repeated
 
@@ -22,11 +22,12 @@ function main(rows::Int, cols::Int, goalrow::Int, goalcol::Int)
     env = WindyGridWorldEnv(rows, cols, CellIndex(goalrow, goalcol))
     A = Reinforce.actions(false)
     policy = Policy(0.1, 0.05, 1.0, env.world, A)
-    draw_image(env, env.state)
-    #for _ in 1:10000
-    #    run_one_episode(env, policy, A, monitoring = false)
-    #end
-    #print_value_function(policy)
+    # draw_image(env, env.state)
+    for _ in 1:100
+        run_one_episode(env, policy, A, monitoring = false)
+    end
+    print_value_function(policy)
+    Environment.save(policy, "intermediate/policy.jld")
     #run_one_episode(env, policy, A, showpath = true)
     
 end
@@ -41,7 +42,7 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
     while !Reinforce.finished(env)        
         a = Reinforce.action(policy, r, s, A)
         r, s′ = Reinforce.step!(env, s, a)
-        update!(policy, s, a, r, s′, A)
+        Reinforce.update!(policy, s, a, r, s′, A)
         s = s′
         i += 1
         if monitoring && i % monitoring_freq == 0
@@ -58,11 +59,19 @@ function draw_image(env::WindyGridWorldEnv, s::WorldState)
     grid = hcat([[1 for i in list] for list in grid]...)
     grid[s.cell.row, s.cell.col] = 2
     grid[env.goal.row, env.goal.col] = 3
-    println(grid)
-    Makie.heatmap!(scene, grid, linewidth = 1,
-                   scale_plot = false, show_axis = false, show = false);
-    scene = Makie.heatmap(1:env.world.rows, 1:env.world.cols, grid,
-                          scale_plot = false, show_axis = false, show = false)
+    Makie.heatmap!(scene, 1:env.world.rows, 1:env.world.cols, grid,
+                   linecolor = :white, linewidth = 1,
+                   scale_plot = false, show_axis = false, show = false)
+    #Makie.scatter!(scene, 1:env.world.rows, 1:env.world.cols, marker = "",
+    #               scale_plot = false, show_axis = false, markersize = 0.5, show = false)
+    
+    #axis = scene[Axis]
+    #println(axis)
+    #axis[:grid][:linewidth] = (5, 5)
+    #axis[:grid][:linecolor] = ((:white, 0.3), (:black, 0.5))
+    
+    #g[:linecolor] = :white
+    #g[:linewidth] = 1
     #marker_settings = (scale_plot = false, show_axis = false,
     #                   markersize = 0.5, show = false)#, marker_offset = Vec2f0(-0.7))
     #scatter!(scene, [env.goal.row], [env.goal.col], marker = "☆",

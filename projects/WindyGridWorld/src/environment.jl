@@ -1,7 +1,7 @@
 module Environment
 export WindyGridWorldEnv
 
-using Reinforce, Random, Base
+using Reinforce, Random, Base, JLD
 import Base: ==
 
 include("./worlds.jl")
@@ -79,6 +79,28 @@ mutable struct Policy <: Reinforce.AbstractPolicy
     Q::Dict{WorldState, Dict{Action, Float64}}
     world::GridWorld
     rng::MersenneTwister
+end
+
+function save(policy::Policy, path::String; name::String = "A")
+    JLD.jldopen("path", "w") do file
+        # addrequire(file, Environment)
+        JLD.@write file policy
+        #JLD.write(file, "policy", policy)
+    end
+end
+
+function save(policy::Policy, path::String)
+    for (state, actions) in policy.Q
+        for (action, value) in actions
+            5
+        end
+    end
+end
+
+function load(path::String; name::String = "A")
+    c = jldopen(path, "r") do file
+        read(file, name)
+    end
 end
 
 function print_value_function(policy::Policy)
