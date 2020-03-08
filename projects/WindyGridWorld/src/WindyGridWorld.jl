@@ -61,8 +61,14 @@ function draw_image(env::WindyGridWorldEnv, s::WorldState)
     println(grid)
     Makie.heatmap!(scene, grid, linewidth = 1,
                    scale_plot = false, show_axis = false, show = false);
-    #scene = Makie.heatmap(1:env.world.rows, 1:env.world.cols, grid,
-    #                      scale_plot = false, show_axis = false, show = false)
+    scene = Makie.heatmap(1:env.world.rows, 1:env.world.cols, grid,
+                          scale_plot = false, show_axis = false, show = false)
+    #marker_settings = (scale_plot = false, show_axis = false,
+    #                   markersize = 0.5, show = false)#, marker_offset = Vec2f0(-0.7))
+    #scatter!(scene, [env.goal.row], [env.goal.col], marker = "☆",
+    #         scale_plot = false, show_axis = false, markersize = 0.5, show = false)
+    #scatter!(scene, [s.cell.row], [s.cell.col], marker = "♔",
+    #         scale_plot = false, show_axis = false, markersize = 0.5, show = false)
     outfile = File(format"PNG", "intermediate/scene.png")
     FileIO.save(outfile, scene)
 end
