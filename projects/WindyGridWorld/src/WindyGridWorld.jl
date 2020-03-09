@@ -39,14 +39,14 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
     r::Reward = 0.0
     i = 0
     monitoring_freq = 100
-    route = []
+    route = [s]
     # if showpath show_position(env, s) end    
-    while !Reinforce.finished(env)
-        push!(route, s)
+    while !Reinforce.finished(env)        
         a = Reinforce.action(policy, r, s, A)
         r, s′ = Reinforce.step!(env, s, a)
         Reinforce.update!(policy, s, a, r, s′, A)
         s = s′
+        push!(route, s)
         i += 1
         if monitoring && i % monitoring_freq == 0
             print_value_function(policy)
@@ -59,12 +59,13 @@ end
 
 function animate_route(env::AbstractEnvironment, route::Array{WorldState, 1})
     scene = Scene(resolution = (1000, 1000))    
-    record(scene, "route.mp4") do io
+    record(scene, "intermediate/route.mkv") do io
         for s in route
             grid = makegrid(env)
             draw_image(env, s, scene, grid)
+            recordframe!(io)
         end
-    end 
+    end
 end
 
 function draw_image(env::WindyGridWorldEnv, s::WorldState, scene, grid)                       
