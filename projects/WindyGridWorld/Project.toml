@@ -4,9 +4,17 @@ authors = ["Unknown "]
 version = "0.1.0"
 
 [deps]
+AbstractPlotting = "537997a7-5e4e-5d89-9595-2241ea00577e"
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 FunctionWrappers = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
+GR = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
+JLD = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
 LightGraphs = "093fc24a-ae57-5d10-9952-331d41423f4d"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Reinforce = "0376cc21-f8a9-5fcf-8891-fde1415a4fd3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"

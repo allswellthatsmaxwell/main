@@ -1,3 +1,4 @@
+
 module Worlds
 export GridWorld, CellIndex, FlatIndex, adjacent
 
@@ -5,9 +6,9 @@ import Base: ==
 using LightGraphs
 NTILES = 40
 
-abstract type Grid end
+abstract type World end
 
-mutable struct GridWorld <: Grid
+mutable struct GridWorld <: World
     rows::Int
     cols::Int
     graph::SimpleGraph
@@ -37,6 +38,8 @@ struct CellIndex
     col::Int
 end
 
+## show(io::IO, c::CellIndex) = print(io, "($(c.row), $(c.col))")
+
 Base.isequal(c1::CellIndex, c2::CellIndex) = c1 == c2
 
 ==(c1::CellIndex, c2::CellIndex) = (c1.row == c2.row) && (c1.col == c2.col)
@@ -48,7 +51,7 @@ function CellIndex(rows::Int, cols::Int, i::FlatIndex)::CellIndex
     returns the CellIndex for a FlatIndex in a grid with the specified
     number of rows and columns.
     """
-    return CellIndex(i % rows, i ÷ cols)
+    return CellIndex(i % rows, (i ÷ (cols + 1)) + 1)
 end
 
 CellIndex(g::GridWorld, i::FlatIndex) = CellIndex(g.rows, g.cols, i)
@@ -63,7 +66,7 @@ function exists(g::GridWorld, c::CellIndex)::Bool
     """
     Returns whether c is an existing position in the GridWorld.
     """
-    return 0 <= c.row < g.rows && 0 <= c.col < g.cols
+    return 1 <= c.row <= g.rows && 1 <= c.col <= g.cols
 end
 
 function move_if_dest_exists(g::GridWorld, c::CellIndex,
@@ -94,7 +97,7 @@ function adjacent(rows::Int, cols::Int, a::FlatIndex, b::FlatIndex)
     return adjacent(CellIndex(rows, cols, a), CellIndex(rows, cols, b))
 end
 
-adjacent(g::Grid, a::FlatIndex, b::FlatIndex) = adjacent(g.rows, g.cols, a, b)
+adjacent(g::World, a::FlatIndex, b::FlatIndex) = adjacent(g.rows, g.cols, a, b)
 
 
 function flat_index(rows::Int, cell::CellIndex)::FlatIndex
@@ -102,10 +105,10 @@ function flat_index(rows::Int, cell::CellIndex)::FlatIndex
     returns the FlatIndex for a CellIndex in a grid with the specified
     number of rows.
     """
-    return cell.row + rows * cell.col
+    return cell.row + rows * (cell.col - 1)
 end
 
-flat_index(g::Grid, cell::CellIndex) = flat_index(g.rows, cell)
+flat_index(g::World, cell::CellIndex) = flat_index(g.rows, cell)
 
 function connect_conditionally(g::SimpleGraph, cond::Function)::Nothing
     """
