@@ -27,19 +27,22 @@ function main(rows::Int, cols::Int, goalrow::Int, goalcol::Int)
         run_one_episode(env, policy, A, monitoring = false)
     end
     print_value_function(policy)
-    Environment.save(policy, "intermediate/policy.jld")
-    #run_one_episode(env, policy, A, showpath = true)
-    
+    # Environment.save(policy, "intermediate/policy.jld")
+    route = run_one_episode(env, policy, A, showpath = true)
+    animate_route(env, route)
 end
 
 function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
-                         A::Set{Action}; monitoring = false, showpath = false)
-    s = env.state
+                         A::Set{Action}; monitoring = false,
+                         showpath = false)::Array{WorldState, 1}
+    s = env.state    
     r::Reward = 0.0
     i = 0
     monitoring_freq = 100
-    if showpath show_position(env, s) end
-    while !Reinforce.finished(env)        
+    route = []
+    # if showpath show_position(env, s) end    
+    while !Reinforce.finished(env)
+        push!(route, s)
         a = Reinforce.action(policy, r, s, A)
         r, s′ = Reinforce.step!(env, s, a)
         Reinforce.update!(policy, s, a, r, s′, A)
@@ -48,15 +51,38 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
         if monitoring && i % monitoring_freq == 0
             print_value_function(policy)
         end
-        if showpath show_position(env, s′) end
+        # if showpath show_position(env, s′) end
     end
     reset!(env)
+    return route
 end
+
+function animate_route(env::AbstractEnvironment, route::Array{WorldState, 1})
+    scene = Scene(resolution = (1000, 1000))    
+    record(scene, "route.mp4") do io
+        for s in route
+            grid = makegrid(env)
+            draw_image(env, s, scene, grid)
+        end
+    end 
+end
+
+function draw_image(env::WindyGridWorldEnv, s::WorldState, scene, grid)                       
+    grid[s.cell.row, s.cell.col] = 2
+    grid[env.goal.row, env.goal.col] = 3
+    Makie.heatmap!(scene, 1:env.world.rows, 1:env.world.cols, grid,
+                   linecolor = :white, linewidth = 1,
+                   scale_plot = false, show_axis = false, show = false)    
+end
+
+function makegrid(env::WindyGridWorldEnv)
+    grid = repeated(1:env.world.rows, env.world.cols)
+    grid = hcat([[1 for i in list] for list in grid]...)
+    return grid
+end                       
 
 function draw_image(env::WindyGridWorldEnv, s::WorldState)
     scene = Scene(resolution = (1000, 1000))
-    grid = repeated(1:env.world.rows, env.world.cols)
-    grid = hcat([[1 for i in list] for list in grid]...)
     grid[s.cell.row, s.cell.col] = 2
     grid[env.goal.row, env.goal.col] = 3
     Makie.heatmap!(scene, 1:env.world.rows, 1:env.world.cols, grid,

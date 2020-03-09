@@ -103,6 +103,10 @@ function to_csv(Q::Dict{WorldState, Dict{Action, Float64}}, path::String)
     end    
 end
 
+function from_csv(path::String)::Dict{WorldState, Dict{Action, Float64}}
+
+end
+
 function save(policy::Policy, path::String)
     to_csv(policy.Q, path)
 end
