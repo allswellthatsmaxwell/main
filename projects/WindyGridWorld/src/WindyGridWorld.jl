@@ -23,7 +23,7 @@ function main(rows::Int, cols::Int, goalrow::Int, goalcol::Int)
     A = Reinforce.actions(false)
     policy = Policy(0.1, 0.05, 1.0, env.world, A)
     # draw_image(env, env.state)
-    for _ in 1:1000
+    for _ in 1:100000
         run_one_episode(env, policy, A, monitoring = false)
     end
     ## print_value_function(policy)
@@ -59,7 +59,7 @@ end
 
 function animate_route(env::AbstractEnvironment, route::Array{WorldState, 1})
     scene = Scene(resolution = (1000, 1000))    
-    record(scene, "intermediate/route.mkv") do io
+    record(scene, "intermediate/route_100k.mkv") do io
         for s in route
             grid = makegrid(env)
             draw_image(env, s, scene, grid)
