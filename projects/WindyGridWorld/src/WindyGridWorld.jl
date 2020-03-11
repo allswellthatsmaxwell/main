@@ -7,7 +7,9 @@ using .Environment: WindyGridWorldEnv, GridWorld, Policy, reset!,
 using Reinforce, Base, ArgParse, Makie, CairoMakie, FileIO
 using Base.Iterators: repeated
 
-defaults = Dict("rows" => 5, "cols" => 4, "goalrow" => 4, "goalcol" => 3)
+defaults = Dict("rows" => 5, "cols" => 4, "episodes" => 1000)
+defaults["goalrow"] = defaults["rows"]
+defaults["goalcol"] = defaults["cols"]
 
 function read_arg(arg, parsed_args)
     val = parsed_args[arg]
@@ -18,8 +20,10 @@ function read_arg(arg, parsed_args)
     end
 end
 
-function main(rows::Int, cols::Int, goalrow::Int, goalcol::Int)
-    env = WindyGridWorldEnv(rows, cols, CellIndex(goalrow, goalcol))
+function main(rows::Int, cols::Int, goalrow::Int, goalcol::Int, episodes::Int,
+              p_tile_removal::Float64)
+    env = WindyGridWorldEnv(rows, cols, CellIndex(goalrow, goalcol),
+                            p_tile_removal)
     A = Reinforce.actions(false)
     policy = Policy(0.1, 0.05, 1.0, env.world, A)
     # draw_image(env, env.state)
@@ -29,7 +33,7 @@ function main(rows::Int, cols::Int, goalrow::Int, goalcol::Int)
     ## print_value_function(policy)
     # Environment.save(policy, "intermediate/policy.jld")
     route = run_one_episode(env, policy, A, showpath = true)
-    animate_route(env, route)
+    animate_route(env, route, episodes)
 end
 
 function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
@@ -57,9 +61,10 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
     return route
 end
 
-function animate_route(env::AbstractEnvironment, route::Array{WorldState, 1})
+function animate_route(env::AbstractEnvironment, route::Array{WorldState, 1},
+                       episodes::Int)
     scene = Scene(resolution = (1000, 1000))    
-    record(scene, "intermediate/route_100k.mkv") do io
+    record(scene, "out/route_$(episodes).mkv") do io
         for s in route
             grid = makegrid(env)
             draw_image(env, s, scene, grid)
@@ -71,6 +76,13 @@ end
 function draw_image(env::WindyGridWorldEnv, s::WorldState, scene, grid)                       
     grid[s.cell.row, s.cell.col] = 2
     grid[env.goal.row, env.goal.col] = 3
+    for vertex in env.world.graph
+        cell = CellIndex(vertex::FlatIndex)
+        if ishole(env.world, cell)                        
+            grid[cell.row, cell.col] = 4
+        end
+    end
+    
     Makie.heatmap!(scene, 1:env.world.rows, 1:env.world.cols, grid,
                    linecolor = :white, linewidth = 1,
                    scale_plot = false, show_axis = false, show = false)    
@@ -165,18 +177,29 @@ end
 
 s = ArgParseSettings()
 @add_arg_table! s begin
-"--rows"
+    "--rows", "-r"
     help = "Number of rows in the world."
     arg_type = Int
-"--cols"
+
+    "--cols", "-c"
     help = "Number of columns in the world."
     arg_type = Int
-"--goalrow"
+
+    "--goalrow"
     help = "row to place the goal at."
     arg_type = Int
-"--goalcol"
+
+    "--goalcol"
     help = "column to place the goal at."
     arg_type = Int
+
+    "--episodes", "-e"
+    help = "number of episodes to train with."
+    arg_type = Int
+
+    "--ptile"
+    help = "probability that any given tile is removed, leaving a hole."
+    arg_type = Float64
 end
 
 parsed_args = parse_args(s)    
@@ -184,9 +207,11 @@ rows = read_arg("rows", parsed_args)
 cols = read_arg("cols", parsed_args)
 goalrow = read_arg("goalrow", parsed_args)
 goalcol = read_arg("goalcol", parsed_args)
+episodes = read_arg("episodes", parsed_args)
+p_tile_removal = read_arg("ptile", parsed_args)
 
 CairoMakie.activate!()
-main(rows, cols, goalrow, goalcol)
+main(rows, cols, goalrow, goalcol, episodes, p_tile_removal)
 
 end
 

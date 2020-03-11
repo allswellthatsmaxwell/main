@@ -19,7 +19,7 @@ end
 function GridWorld(rows::Int, cols::Int, graph::SimpleGraph)
     moves = (left, right, up, down, stay)
     actions_to_moves = Dict([(i, fn) for (i, fn) in enumerate(moves)])
-    return GridWorld(rows, cols, graph, actions_to_moves)
+    return GridWorld(rows, cols, graph, actions_to_moves, 0)
 end
 
 function GridWorld(rows::Int, cols::Int)
@@ -90,7 +90,6 @@ function move_if_dest_exists(g::GridWorld, c::CellIndex,
     end
 end
 
-## TODO: We need to use the graph here, not just assume we're fully connected.
 function adjacent(a::CellIndex, b::CellIndex)::Bool
     adjacent_or_same_col = abs(a.col - b.col) <= 1
     adjacent_or_same_row = abs(a.row - b.row) <= 1    
