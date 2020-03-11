@@ -144,6 +144,7 @@ function remove_tiles!(g::SimpleGraph, p::Float64)
     """
     for v in vertices(g)
         if rand() < p
+            println("Removed $(v).")
             rem_vertex!(g, v)
         end
     end                        

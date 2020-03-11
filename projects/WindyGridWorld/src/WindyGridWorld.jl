@@ -2,12 +2,12 @@ module WindyGridWorld
 include("./environment.jl")
 # include("./draw.jl")
 using .Environment: WindyGridWorldEnv, GridWorld, Policy, reset!,
-    Reinforce.finished, Reinforce.actions, Action, Reward, print_value_function, CellIndex,
-    WorldState, save, load
-using Reinforce, Base, ArgParse, Makie, CairoMakie, FileIO
+    Reinforce.finished, Reinforce.actions, Action, Reward, print_value_function,
+    CellIndex, FlatIndex, WorldState, save, load, ishole
+using Reinforce, Base, ArgParse, Makie, CairoMakie, FileIO, LightGraphs
 using Base.Iterators: repeated
 
-defaults = Dict("rows" => 5, "cols" => 4, "episodes" => 1000)
+defaults = Dict("rows" => 5, "cols" => 4, "episodes" => 1000, "ptile" => 0.0)
 defaults["goalrow"] = defaults["rows"]
 defaults["goalcol"] = defaults["cols"]
 
@@ -27,12 +27,15 @@ function main(rows::Int, cols::Int, goalrow::Int, goalcol::Int, episodes::Int,
     A = Reinforce.actions(false)
     policy = Policy(0.1, 0.05, 1.0, env.world, A)
     # draw_image(env, env.state)
-    for _ in 1:100000
+    println("Running episodes.")
+    for _ in 1:episodes
         run_one_episode(env, policy, A, monitoring = false)
     end
+    println("Finished running bulk.")
     ## print_value_function(policy)
     # Environment.save(policy, "intermediate/policy.jld")
     route = run_one_episode(env, policy, A, showpath = true)
+    println("Got route. Plotting...")
     animate_route(env, route, episodes)
 end
 
@@ -76,9 +79,10 @@ end
 function draw_image(env::WindyGridWorldEnv, s::WorldState, scene, grid)                       
     grid[s.cell.row, s.cell.col] = 2
     grid[env.goal.row, env.goal.col] = 3
-    for vertex in env.world.graph
-        cell = CellIndex(vertex::FlatIndex)
-        if ishole(env.world, cell)                        
+    for vertex in vertices(env.world.graph)
+        ## TODO: some conversion error giving 0 here?
+        cell = CellIndex(env.world, vertex::FlatIndex)
+        if ishole(env.world, cell)
             grid[cell.row, cell.col] = 4
         end
     end

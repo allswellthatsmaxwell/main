@@ -1,7 +1,7 @@
 module Environment
 export WindyGridWorldEnv
 
-using Reinforce, Random, Base, JLD
+using Reinforce, Random, Base, JLD, LightGraphs
 import Base: ==
 
 include("./worlds.jl")
@@ -224,8 +224,10 @@ function Reinforce.reset!(env::WindyGridWorldEnv)
 end
 
 function ishole(world::GridWorld, cell::CellIndex)
-    return !has_vertex(world.graph, cell)
+    v = flat_index(world, cell)::Int
+    return !has_vertex(world.graph, v)
 end
+
 ishole(world::GridWorld, state::WorldState) = ishole(world, state.cell)
 ishole(world::GridWorld, i::FlatIndex) = ishole(world, CellIndex(i))
 
@@ -240,7 +242,7 @@ function Reinforce.step!(env::WindyGridWorldEnv, state::WorldState,
     elseif ishole(env.world, state)
         reward = -1.0
         reset!(env)
-        s′ = env.start        
+        s′ = WorldState(env.start)
     else        
         reward = -1.0
         move::Function = env.world.actions_to_moves[a]

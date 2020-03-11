@@ -11,8 +11,9 @@ g = GridWorld(6, 5)
 Pair(t::Tuple{Int64}, f::FlatIndex) = Pair(CellIndex(t...), f)
 
 pairs = (
-    Pair(CellIndex(1, 1), 1),
+    Pair(CellIndex(1, 1), 1),    
     Pair(CellIndex(3, 1), 3),
+    Pair(CellIndex(2, 1), 7), ## is this right?
     Pair(CellIndex(2, 2), 8),
     Pair(CellIndex(3, 2), 9),
     Pair(CellIndex(1, 3), 13),
