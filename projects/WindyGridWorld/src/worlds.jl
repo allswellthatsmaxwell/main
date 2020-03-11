@@ -13,20 +13,27 @@ mutable struct GridWorld <: World
     cols::Int
     graph::SimpleGraph
     actions_to_moves::Dict{Int, Function}
+    p_tile_removal::Float64
 end
 
 function GridWorld(rows::Int, cols::Int, graph::SimpleGraph)
     moves = (left, right, up, down, stay)
     actions_to_moves = Dict([(i, fn) for (i, fn) in enumerate(moves)])
     return GridWorld(rows, cols, graph, actions_to_moves)
-    
 end
 
 function GridWorld(rows::Int, cols::Int)
     graph = SimpleGraph(rows * cols)
-    connect_adjacent(graph, rows, cols)
+    connect_adjacent!(graph, rows, cols)    
     return GridWorld(rows, cols, graph)
 end
+
+function GridWorld(rows::Int, cols::Int, p_tile_removal::Float64)
+    world = GridWorld(rows, cols)
+    remove_tiles!(world.graph, p_tile_removal)
+    return world
+end
+
 
 GridWorld(ntiles::Int) = GridWorld(ntiles ÷ 2, ntiles ÷ 2)
 GridWorld() = GridWorld(NTILES)
@@ -83,6 +90,7 @@ function move_if_dest_exists(g::GridWorld, c::CellIndex,
     end
 end
 
+## TODO: We need to use the graph here, not just assume we're fully connected.
 function adjacent(a::CellIndex, b::CellIndex)::Bool
     adjacent_or_same_col = abs(a.col - b.col) <= 1
     adjacent_or_same_row = abs(a.row - b.row) <= 1    
@@ -110,7 +118,7 @@ end
 
 flat_index(g::World, cell::CellIndex) = flat_index(g.rows, cell)
 
-function connect_conditionally(g::SimpleGraph, cond::Function)::Nothing
+function connect_conditionally!(g::SimpleGraph, cond::Function)::Nothing
     """
     :param cond: a function Int -> Int -> Bool that takes two vertices 
     and returns whether they should be connected.
@@ -124,11 +132,24 @@ function connect_conditionally(g::SimpleGraph, cond::Function)::Nothing
     end
 end
 
-function connect_adjacent(g::SimpleGraph, rows::Int, cols::Int)::Nothing
+function connect_adjacent!(g::SimpleGraph, rows::Int, cols::Int)::Nothing
     cond(u, v) = adjacent(rows, cols, u, v) 
-    connect_conditionally(g, cond)
+    connect_conditionally!(g, cond)
 end
 
-connect_fully(g::SimpleGraph) = connect_conditionally(g, (u, v) -> true)
+function remove_tiles!(g::SimpleGraph, p::Float64)
+    """
+    Removes vertices at random from a graph.
+
+    :param p: the probability with which each tile is removed.
+    """
+    for v in vertices(g)
+        if rand() < p
+            rem_vertex!(g, v)
+        end
+    end                        
+end
+
+connect_fully!(g::SimpleGraph) = connect_conditionally(g, (u, v) -> true)
 
 end
