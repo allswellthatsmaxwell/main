@@ -152,11 +152,12 @@ function remove_tiles!(world::GridWorld, p::Float64)
     Removes vertices at random from a graph.
 
     :param p: the probability with which each tile is removed.
-    """    
-    for v in 1:(world.rows * world.cols)
+    """
+    ncells = (world.rows * world.cols)
+    for v in 1:ncells
         cell = CellIndex(world, v)
         i = flat_index(world, cell)        
-        if rand() < p
+        if v ∉ (1, ncells) && v != rand() < p
             push!(world.holes, v)
         end
     end                        

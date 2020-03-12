@@ -102,12 +102,12 @@ end
 
 function editgrid!(grid::Array{Int, 2}, env::WindyGridWorldEnv, s::WorldState)
     fill!(grid, 1)
-    grid[s.cell.row, s.cell.col] = 2
-    grid[env.goal.row, env.goal.col] = 3
     for hole in env.world.holes
         cell = CellIndex(env.world, hole)
         grid[cell.row, cell.col] = 4
-    end    
+    end
+    grid[s.cell.row, s.cell.col] = 2
+    grid[env.goal.row, env.goal.col] = 3
 end
 
 function makegrid(env::WindyGridWorldEnv)::Array{Int, 2}
