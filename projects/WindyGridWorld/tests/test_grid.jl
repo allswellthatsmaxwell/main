@@ -13,11 +13,15 @@ Pair(t::Tuple{Int64}, f::FlatIndex) = Pair(CellIndex(t...), f)
 pairs = (
     Pair(CellIndex(1, 1), 1),    
     Pair(CellIndex(3, 1), 3),
-    Pair(CellIndex(2, 1), 7), ## is this right?
+    
+    Pair(CellIndex(1, 2), 7),
     Pair(CellIndex(2, 2), 8),
     Pair(CellIndex(3, 2), 9),
+    
     Pair(CellIndex(1, 3), 13),
-    Pair(CellIndex(3, 3), 15)
+    Pair(CellIndex(3, 3), 15),
+    Pair(CellIndex(6, 5), 30),
+    Pair(CellIndex(1, 5), 25)
 )
 
 @testset for p in pairs

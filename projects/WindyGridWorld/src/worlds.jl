@@ -58,7 +58,17 @@ function CellIndex(rows::Int, cols::Int, i::FlatIndex)::CellIndex
     returns the CellIndex for a FlatIndex in a grid with the specified
     number of rows and columns.
     """
-    return CellIndex(i % rows, (i ÷ (cols + 1)) + 1)
+
+    ## 0-based
+    i = i - 1
+    
+    rows = rows
+    cols = cols
+    row = i % rows
+    col = i ÷ rows
+        
+    ## back to 1-based
+    return CellIndex(row + 1, col + 1)
 end
 
 CellIndex(g::GridWorld, i::FlatIndex) = CellIndex(g.rows, g.cols, i)
