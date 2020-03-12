@@ -13,20 +13,28 @@ mutable struct GridWorld <: World
     cols::Int
     graph::SimpleGraph
     actions_to_moves::Dict{Int, Function}
+    p_tile_removal::Float64
+    holes::Set{Int}
 end
 
 function GridWorld(rows::Int, cols::Int, graph::SimpleGraph)
     moves = (left, right, up, down, stay)
     actions_to_moves = Dict([(i, fn) for (i, fn) in enumerate(moves)])
-    return GridWorld(rows, cols, graph, actions_to_moves)
-    
+    return GridWorld(rows, cols, graph, actions_to_moves, 0, Set{Int}())
 end
 
 function GridWorld(rows::Int, cols::Int)
     graph = SimpleGraph(rows * cols)
-    connect_adjacent(graph, rows, cols)
+    connect_adjacent!(graph, rows, cols)    
     return GridWorld(rows, cols, graph)
 end
+
+function GridWorld(rows::Int, cols::Int, p_tile_removal::Float64)
+    world = GridWorld(rows, cols)
+    remove_tiles!(world, p_tile_removal)
+    return world
+end
+
 
 GridWorld(ntiles::Int) = GridWorld(ntiles ÷ 2, ntiles ÷ 2)
 GridWorld() = GridWorld(NTILES)
@@ -51,7 +59,17 @@ function CellIndex(rows::Int, cols::Int, i::FlatIndex)::CellIndex
     returns the CellIndex for a FlatIndex in a grid with the specified
     number of rows and columns.
     """
-    return CellIndex(i % rows, (i ÷ (cols + 1)) + 1)
+
+    ## 0-based
+    i = i - 1
+    
+    rows = rows
+    cols = cols
+    row = i % rows
+    col = i ÷ rows
+        
+    ## back to 1-based
+    return CellIndex(row + 1, col + 1)
 end
 
 CellIndex(g::GridWorld, i::FlatIndex) = CellIndex(g.rows, g.cols, i)
@@ -110,7 +128,7 @@ end
 
 flat_index(g::World, cell::CellIndex) = flat_index(g.rows, cell)
 
-function connect_conditionally(g::SimpleGraph, cond::Function)::Nothing
+function connect_conditionally!(g::SimpleGraph, cond::Function)::Nothing
     """
     :param cond: a function Int -> Int -> Bool that takes two vertices 
     and returns whether they should be connected.
@@ -124,11 +142,27 @@ function connect_conditionally(g::SimpleGraph, cond::Function)::Nothing
     end
 end
 
-function connect_adjacent(g::SimpleGraph, rows::Int, cols::Int)::Nothing
+function connect_adjacent!(g::SimpleGraph, rows::Int, cols::Int)::Nothing
     cond(u, v) = adjacent(rows, cols, u, v) 
-    connect_conditionally(g, cond)
+    connect_conditionally!(g, cond)
 end
 
-connect_fully(g::SimpleGraph) = connect_conditionally(g, (u, v) -> true)
+function remove_tiles!(world::GridWorld, p::Float64)
+    """
+    Removes vertices at random from a graph.
+
+    :param p: the probability with which each tile is removed.
+    """
+    ncells = (world.rows * world.cols)
+    for v in 1:ncells
+        cell = CellIndex(world, v)
+        i = flat_index(world, cell)        
+        if v ∉ (1, ncells) && v != rand() < p
+            push!(world.holes, v)
+        end
+    end                        
+end
+
+connect_fully!(g::SimpleGraph) = connect_conditionally(g, (u, v) -> true)
 
 end

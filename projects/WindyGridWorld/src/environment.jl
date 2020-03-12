@@ -1,7 +1,7 @@
 module Environment
 export WindyGridWorldEnv
 
-using Reinforce, Random, Base, JLD
+using Reinforce, Random, Base, JLD, LightGraphs
 import Base: ==
 
 include("./worlds.jl")
@@ -35,6 +35,14 @@ mutable struct WindyGridWorldEnv <: Reinforce.AbstractEnvironment
     world::GridWorld
 end
 
+WindyGridWorldEnv(rows::Int, cols::Int,
+                  goal::CellIndex, p_tile_removal::Float64) = WindyGridWorldEnv(
+                      WorldState(default_start_cell),
+                      default_start_cell,
+                      goal,
+                      0,
+                      GridWorld(rows, cols, p_tile_removal))
+
 WindyGridWorldEnv() = WindyGridWorldEnv(
     WorldState(),
     default_start_cell,
@@ -42,19 +50,17 @@ WindyGridWorldEnv() = WindyGridWorldEnv(
     0,
     GridWorld())
 
-WindyGridWorldEnv(rows::Int, cols::Int) = WindyGridWorldEnv(
-    WorldState(),
-    default_start_cell,
-    default_goal_cell,
-    0,
-    GridWorld(rows, cols))
-
 WindyGridWorldEnv(rows::Int, cols::Int, goal::CellIndex) = WindyGridWorldEnv(
     WorldState(default_start_cell),
     default_start_cell,
     goal,
     0,
-    GridWorld(rows, cols))
+    GridWorld(rows, cols),
+    0.0)
+
+WindyGridWorldEnv(rows::Int, cols::Int) = WindyGridWorldEnv(
+    rows, cols, default_goal_cell)    
+
 
 
 WindyGridWorldEnv(start_cell::CellIndex,
@@ -104,6 +110,7 @@ function to_csv(Q::Dict{WorldState, Dict{Action, Float64}}, path::String)
 end
 
 function from_csv(path::String)::Dict{WorldState, Dict{Action, Float64}}
+    
 
 end
 
@@ -216,15 +223,27 @@ function Reinforce.reset!(env::WindyGridWorldEnv)
     env.state = WorldState(env.start)
 end
 
+function ishole(world::GridWorld, cell::CellIndex)
+    v = flat_index(world, cell)::Int
+    return v in world.holes
+end
+
+ishole(world::GridWorld, state::WorldState) = ishole(world, state.cell)
+ishole(world::GridWorld, i::FlatIndex) = ishole(world, CellIndex(i))
+
 function Reinforce.step!(env::WindyGridWorldEnv, state::WorldState,
                          a::Action)::Tuple{Reward, WorldState}
     """ 
     :param a: the action to take
     """
     if finished(env, state)
-        reward = 0.0 ## is this enough?
+        reward = 0.0
         s′ = state
-    else
+    elseif ishole(env.world, state)
+        reward = -1.0
+        reset!(env)
+        s′ = WorldState(env.start)
+    else        
         reward = -1.0
         move::Function = env.world.actions_to_moves[a]
         new_pos::CellIndex = move(env.world, state.cell)

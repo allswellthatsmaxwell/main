@@ -2,12 +2,22 @@ module WindyGridWorld
 include("./environment.jl")
 # include("./draw.jl")
 using .Environment: WindyGridWorldEnv, GridWorld, Policy, reset!,
-    Reinforce.finished, Reinforce.actions, Action, Reward, print_value_function, CellIndex,
-    WorldState, save, load
-using Reinforce, Base, ArgParse, Makie, CairoMakie, FileIO
+    Reinforce.finished, Reinforce.actions, Action, Reward, print_value_function,
+    CellIndex, FlatIndex, WorldState, ishole
+
+using Reinforce, CairoMakie
+
+using ArgParse: ArgParseSettings, @add_arg_table!, parse_args
+using LightGraphs: vertices
+# using FileIO: save
+using Makie: heatmap!, Scene, record, recordframe!
 using Base.Iterators: repeated
 
-defaults = Dict("rows" => 5, "cols" => 4, "goalrow" => 4, "goalcol" => 3)
+
+defaults = Dict("rows" => 5, "cols" => 4, "episodes" => 1000, "ptile" => 0.0,
+                "verbose" => false, "draw" => false)
+defaults["goalrow"] = defaults["rows"]
+defaults["goalcol"] = defaults["cols"]
 
 function read_arg(arg, parsed_args)
     val = parsed_args[arg]
@@ -18,18 +28,26 @@ function read_arg(arg, parsed_args)
     end
 end
 
-function main(rows::Int, cols::Int, goalrow::Int, goalcol::Int)
-    env = WindyGridWorldEnv(rows, cols, CellIndex(goalrow, goalcol))
+function main(rows::Int, cols::Int, goalrow::Int, goalcol::Int, episodes::Int,
+              p_tile_removal::Float64, verbose::Bool, draw::Bool)
+    env = WindyGridWorldEnv(rows, cols, CellIndex(goalrow, goalcol),
+                            p_tile_removal)
     A = Reinforce.actions(false)
     policy = Policy(0.1, 0.05, 1.0, env.world, A)
-    # draw_image(env, env.state)
-    for _ in 1:100000
+    if verbose println("Running episodes. Starting at cell $(env.state.cell).") end
+    for _ in 1:episodes
         run_one_episode(env, policy, A, monitoring = false)
     end
+    if verbose println("Finished running bulk.") end
     ## print_value_function(policy)
     # Environment.save(policy, "intermediate/policy.jld")
-    route = run_one_episode(env, policy, A, showpath = true)
-    animate_route(env, route)
+    if draw
+        route = run_one_episode(env, policy, A, showpath = true)
+        if verbose
+            println("Got route. It's $(length(route)) steps long. Plotting...")
+        end    
+        animate_route(env, route, episodes)
+    end
 end
 
 function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
@@ -57,126 +75,85 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
     return route
 end
 
-function animate_route(env::AbstractEnvironment, route::Array{WorldState, 1})
-    scene = Scene(resolution = (1000, 1000))    
-    record(scene, "intermediate/route_100k.mkv") do io
-        for s in route
-            grid = makegrid(env)
-            draw_image(env, s, scene, grid)
+function animate_route(env::WindyGridWorldEnv, route::Array{WorldState, 1},
+                       episodes::Int)
+    """
+    Animates a route through an environment.
+
+    :param episodes: only used to name the output file.
+    """
+    scene = Scene(resolution = (1000, 1000))
+    grid = makegrid(env)
+    record(scene, "out/route_$(episodes).mkv") do io
+        for (i, s) in enumerate(route)
+            editgrid!(grid, env, s)
+            draw_image(scene, grid)
             recordframe!(io)
         end
-    end
+    end    
 end
 
-function draw_image(env::WindyGridWorldEnv, s::WorldState, scene, grid)                       
+function draw_image(scene::Scene, grid::Array{Int, 2})
+    rows, cols = size(grid)[1], size(grid)[2]
+    heatmap!(scene, 1:rows, 1:cols, grid,
+             linecolor = :white, linewidth = 1,
+             scale_plot = false, show_axis = false, show = false)    
+end
+
+function editgrid!(grid::Array{Int, 2}, env::WindyGridWorldEnv, s::WorldState)
+    fill!(grid, 1)
+    for hole in env.world.holes
+        cell = CellIndex(env.world, hole)
+        grid[cell.row, cell.col] = 4
+    end
     grid[s.cell.row, s.cell.col] = 2
     grid[env.goal.row, env.goal.col] = 3
-    Makie.heatmap!(scene, 1:env.world.rows, 1:env.world.cols, grid,
-                   linecolor = :white, linewidth = 1,
-                   scale_plot = false, show_axis = false, show = false)    
 end
 
-function makegrid(env::WindyGridWorldEnv)
+function makegrid(env::WindyGridWorldEnv)::Array{Int, 2}
+    """
+    Makes a 2D array where the locations of the current, goal, and hole states
+    have their own numbers (and everything else has a 4th number).
+    """
     grid = repeated(1:env.world.rows, env.world.cols)
     grid = hcat([[1 for i in list] for list in grid]...)
     return grid
 end                       
 
-function draw_image(env::WindyGridWorldEnv, s::WorldState)
-    scene = Scene(resolution = (1000, 1000))
-    grid[s.cell.row, s.cell.col] = 2
-    grid[env.goal.row, env.goal.col] = 3
-    Makie.heatmap!(scene, 1:env.world.rows, 1:env.world.cols, grid,
-                   linecolor = :white, linewidth = 1,
-                   scale_plot = false, show_axis = false, show = false)
-    #Makie.scatter!(scene, 1:env.world.rows, 1:env.world.cols, marker = "",
-    #               scale_plot = false, show_axis = false, markersize = 0.5, show = false)
-    
-    #axis = scene[Axis]
-    #println(axis)
-    #axis[:grid][:linewidth] = (5, 5)
-    #axis[:grid][:linecolor] = ((:white, 0.3), (:black, 0.5))
-    
-    #g[:linecolor] = :white
-    #g[:linewidth] = 1
-    #marker_settings = (scale_plot = false, show_axis = false,
-    #                   markersize = 0.5, show = false)#, marker_offset = Vec2f0(-0.7))
-    #scatter!(scene, [env.goal.row], [env.goal.col], marker = "☆",
-    #         scale_plot = false, show_axis = false, markersize = 0.5, show = false)
-    #scatter!(scene, [s.cell.row], [s.cell.col], marker = "♔",
-    #         scale_plot = false, show_axis = false, markersize = 0.5, show = false)
-    outfile = File(format"PNG", "intermediate/scene.png")
-    FileIO.save(outfile, scene)
-end
-
-function draw_image(env, s)
-    makevars() = Dict("x" => [], "y" => [])    
-    kinds = ("all", "goal", "current")    
-    attrs = Dict([(k, Dict()) for k in kinds])    
-    attrs["current"]["shape"] = :circle
-    attrs["goal"]["shape"] = :cross
-    attrs["all"]["shape"] = :square
-
-    attrs["current"]["color"] = :red
-    attrs["goal"]["color"] = :green
-    attrs["all"]["color"] = :purple
-    
-    xs = []
-    ys = []
-    zs = []
-    indices = Dict([(k, makevars()) for k in kinds])
-    for row in 1:env.world.rows
-        for col in 1:env.world.cols
-            cell = CellIndex(row, col)
-            if s == WorldState(cell)
-                target_kind = "current"                               
-            elseif cell == env.goal
-                target_kind = "goal"
-            else
-                target_kind = "all"
-            end
-            push!(indices[target_kind]["x"], row)
-            push!(indices[target_kind]["y"], col)
-
-            push!(xs, row)
-            push!(ys, col)
-            push!(zs, target_kind)
-        end
-    end
-    println("drawing")
-    z = reshape(zs, env.world.rows, env.world.cols)
-    for var in (xs, ys, z)
-        println(var)
-    end
-    p = heatmap(xs, ys, z, yflip = true,
-                c = cgrad([:red, :blue, :green]))# l = (1, :black),
-                #grid = true, axiscolor = nothing, size = (600, 500))
-    # p = plot()
-    #for kind in kinds
-    #    inds = indices[kind]
-    #    att = attrs[kind]
-    #    scatter!(p, inds["x"], inds["y"],
-    #             markershape = att["shape"], color = att["color"],
-    #             markersize = 20, show = false);
-    #end
-    savefig(p, "intermediate/p.html")
-end
 
 
 s = ArgParseSettings()
 @add_arg_table! s begin
-"--rows"
+    "--rows", "-r"
     help = "Number of rows in the world."
     arg_type = Int
-"--cols"
+
+    "--cols", "-c"
     help = "Number of columns in the world."
     arg_type = Int
-"--goalrow"
+
+    "--goalrow"
     help = "row to place the goal at."
     arg_type = Int
-"--goalcol"
+
+    "--goalcol"
     help = "column to place the goal at."
     arg_type = Int
+
+    "--episodes", "-e"
+    help = "number of episodes to train with."
+    arg_type = Int
+
+    "--ptile"
+    help = "probability that any given tile is removed, leaving a hole."
+    arg_type = Float64
+
+    "--verbose", "-v"
+    arg_type = Bool
+
+    "--draw"
+    help = "should a movie of the agent's progress be written to disk?"
+    arg_type = Bool
 end
 
 parsed_args = parse_args(s)    
@@ -184,9 +161,14 @@ rows = read_arg("rows", parsed_args)
 cols = read_arg("cols", parsed_args)
 goalrow = read_arg("goalrow", parsed_args)
 goalcol = read_arg("goalcol", parsed_args)
+episodes = read_arg("episodes", parsed_args)
+p_tile_removal = read_arg("ptile", parsed_args)
+verbose = read_arg("verbose", parsed_args)
+draw = read_arg("draw", parsed_args)
 
 CairoMakie.activate!()
-main(rows, cols, goalrow, goalcol)
+main(rows, cols, goalrow, goalcol, episodes, p_tile_removal, verbose,
+     draw)
 
 end
 
