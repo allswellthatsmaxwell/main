@@ -5,13 +5,12 @@ using .Environment: WindyGridWorldEnv, GridWorld, Policy, reset!,
     Reinforce.finished, Reinforce.actions, Action, Reward, print_value_function,
     CellIndex, FlatIndex, WorldState, ishole
 
-using Reinforce
+using Reinforce, CairoMakie
 
-using ArgParse: ArgParseSettings, @add_arg_table!
+using ArgParse: ArgParseSettings, @add_arg_table!, parse_args
 using LightGraphs: vertices
 # using FileIO: save
 using Makie: heatmap!, Scene, record, recordframe!
-using CairoMakie: activate!
 using Base.Iterators: repeated
 
 
@@ -35,7 +34,7 @@ function main(rows::Int, cols::Int, goalrow::Int, goalcol::Int, episodes::Int,
                             p_tile_removal)
     A = Reinforce.actions(false)
     policy = Policy(0.1, 0.05, 1.0, env.world, A)
-    if verbose println("Running episodes.") end
+    if verbose println("Running episodes. Starting at cell $(env.state.cell).") end
     for _ in 1:episodes
         run_one_episode(env, policy, A, monitoring = false)
     end
@@ -45,7 +44,7 @@ function main(rows::Int, cols::Int, goalrow::Int, goalcol::Int, episodes::Int,
     if draw
         route = run_one_episode(env, policy, A, showpath = true)
         if verbose
-            println("Got route. It'd $(length(route)) steps long. Plotting...")
+            println("Got route. It's $(length(route)) steps long. Plotting...")
         end    
         animate_route(env, route, episodes)
     end
@@ -76,42 +75,48 @@ function run_one_episode(env::AbstractEnvironment, policy::AbstractPolicy,
     return route
 end
 
-function animate_route(env::AbstractEnvironment, route::Array{WorldState, 1},
+function animate_route(env::WindyGridWorldEnv, route::Array{WorldState, 1},
                        episodes::Int)
-    scene = Scene(resolution = (1000, 1000))    
+    """
+    Animates a route through an environment.
+
+    :param episodes: only used to name the output file.
+    """
+    scene = Scene(resolution = (1000, 1000))
+    grid = makegrid(env)
     record(scene, "out/route_$(episodes).mkv") do io
-        for s in route
-            grid = makegrid(env, s)
+        for (i, s) in enumerate(route)
+            editgrid!(grid, env, s)
             draw_image(scene, grid)
             recordframe!(io)
         end
-    end
-    println(grid)
+    end    
 end
 
 function draw_image(scene::Scene, grid::Array{Int, 2})
     rows, cols = size(grid)[1], size(grid)[2]
-    Makie.heatmap!(scene, 1:rows, 1:cols, grid,
-                   linecolor = :white, linewidth = 1,
-                   scale_plot = false, show_axis = false, show = false)    
+    heatmap!(scene, 1:rows, 1:cols, grid,
+             linecolor = :white, linewidth = 1,
+             scale_plot = false, show_axis = false, show = false)    
 end
 
-function makegrid(env::WindyGridWorldEnv, s::WorldState)::Array{Int, 2}
+function editgrid!(grid::Array{Int, 2}, env::WindyGridWorldEnv, s::WorldState)
+    fill!(grid, 1)
+    grid[s.cell.row, s.cell.col] = 2
+    grid[env.goal.row, env.goal.col] = 3
+    for hole in env.world.holes
+        cell = CellIndex(env.world, hole)
+        grid[cell.row, cell.col] = 4
+    end    
+end
+
+function makegrid(env::WindyGridWorldEnv)::Array{Int, 2}
     """
     Makes a 2D array where the locations of the current, goal, and hole states
     have their own numbers (and everything else has a 4th number).
     """
     grid = repeated(1:env.world.rows, env.world.cols)
     grid = hcat([[1 for i in list] for list in grid]...)
-    grid[s.cell.row, s.cell.col] = 2
-    grid[env.goal.row, env.goal.col] = 3
-    for vertex in vertices(env.world.graph)
-        cell = CellIndex(env.world, vertex::FlatIndex)
-        if ishole(env.world, cell)
-            println("hole!")
-            grid[cell.row, cell.col] = 4
-        end
-    end
     return grid
 end                       
 

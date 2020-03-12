@@ -14,12 +14,13 @@ mutable struct GridWorld <: World
     graph::SimpleGraph
     actions_to_moves::Dict{Int, Function}
     p_tile_removal::Float64
+    holes::Set{Int}
 end
 
 function GridWorld(rows::Int, cols::Int, graph::SimpleGraph)
     moves = (left, right, up, down, stay)
     actions_to_moves = Dict([(i, fn) for (i, fn) in enumerate(moves)])
-    return GridWorld(rows, cols, graph, actions_to_moves, 0)
+    return GridWorld(rows, cols, graph, actions_to_moves, 0, Set{Int}())
 end
 
 function GridWorld(rows::Int, cols::Int)
@@ -30,7 +31,7 @@ end
 
 function GridWorld(rows::Int, cols::Int, p_tile_removal::Float64)
     world = GridWorld(rows, cols)
-    remove_tiles!(world.graph, p_tile_removal)
+    remove_tiles!(world, p_tile_removal)
     return world
 end
 
@@ -146,16 +147,17 @@ function connect_adjacent!(g::SimpleGraph, rows::Int, cols::Int)::Nothing
     connect_conditionally!(g, cond)
 end
 
-function remove_tiles!(g::SimpleGraph, p::Float64)
+function remove_tiles!(world::GridWorld, p::Float64)
     """
     Removes vertices at random from a graph.
 
     :param p: the probability with which each tile is removed.
-    """
-    for v in vertices(g)
+    """    
+    for v in 1:(world.rows * world.cols)
+        cell = CellIndex(world, v)
+        i = flat_index(world, cell)        
         if rand() < p
-            println("Removed $(v).")
-            rem_vertex!(g, v)
+            push!(world.holes, v)
         end
     end                        
 end

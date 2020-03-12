@@ -225,7 +225,7 @@ end
 
 function ishole(world::GridWorld, cell::CellIndex)
     v = flat_index(world, cell)::Int
-    return !has_vertex(world.graph, v)
+    return v in world.holes
 end
 
 ishole(world::GridWorld, state::WorldState) = ishole(world, state.cell)
