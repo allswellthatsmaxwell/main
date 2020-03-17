@@ -12,4 +12,5 @@ docker run -it --rm --entrypoint /bin/bash \
        --name "maxwell" \
        -e GRANT_SUDO=yes \
        -e USERID=$UID \
+       -e AWS_DEFAULT_REGION="us-east-2" \
        $image
