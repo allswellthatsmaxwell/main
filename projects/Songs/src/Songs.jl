@@ -3,8 +3,8 @@ module Songs
 using AWSCore: aws_config
 using AWSS3: s3_get_file
 using Base.Filesystem: dirname, mkdir, ispath, basename, joinpath
-using ZipFile: Reader, read
-using CSV, InfoZIP
+# using ZipFile: Reader, read
+using CSV, DataFrames
 
 BUCKET_NAME = "maxwell-main"
 LYRICS_ZIPNAME = "data/380000-lyrics-from-metrolyrics.zip"
@@ -49,11 +49,13 @@ function describe(path)
     
 end
 
-download()
-data = unzip()
+# download()
+# data = unzip()
 
-println(data)
+# println(data)
 
+data = CSV.read("data/lyrics.csv")
+println(head(data))
 # describe(datapath)
 
 end
