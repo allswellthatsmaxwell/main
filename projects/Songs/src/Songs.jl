@@ -4,7 +4,7 @@ using AWSCore: aws_config
 using AWSS3: s3_get_file
 using Base.Filesystem: dirname, mkdir, ispath, basename, joinpath
 # using ZipFile: Reader, read
-using CSV, DataFrames
+using CSV, DataFrames, Statistics
 
 BUCKET_NAME = "maxwell-main"
 LYRICS_ZIPNAME = "data/380000-lyrics-from-metrolyrics.zip"
@@ -45,17 +45,36 @@ function unzip(zippath = DEFAULT_DATA_FPATH)
     return open_zip(zippath)["lyrics.csv"]
 end
 
-function describe(path)
-    
+function count_songs_per_artist(data::DataFrame)::DataFrame
+    return by(data, :artist, :song => length) |>
+        (df -> rename(df, :song_length => :n_songs))
 end
 
+function get_song_counts_quantiles(songs_per_artist::DataFrame)
+    tiles = [[x for x in 0.10:0.10:0.9];
+             [0.95, 0.975, 0.99, 0.995, 0.999, 1]]
+    values = [floor(Int, x)
+              for x in quantile(songs_per_artist[:n_songs], tiles)]
+    return DataFrame(:percentile => tiles, :songs => values)
+end
+
+function describe(data::DataFrame)
+    unique_artists::Int = length(unique(data[!, :artist]))
+    songs_per_artist = count_songs_per_artist(data)
+    quantiles = get_song_counts_quantiles(songs_per_artist)
+    return unique_artists, quantiles
+end
+
+
+
+function read_data()
+    return CSV.read("data/lyrics.csv")
+end
 # download()
 # data = unzip()
 
 # println(data)
 
-data = CSV.read("data/lyrics.csv")
-println(head(data))
 # describe(datapath)
 
 end
