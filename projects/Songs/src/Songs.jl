@@ -12,7 +12,8 @@ LOCAL_DATA_DIR = "data"
 DEFAULT_DATA_FPATH = "$(LOCAL_DATA_DIR)/$(basename(LYRICS_ZIPNAME))"
 VERBOSE = true
 function download(; s3bucket = BUCKET_NAME, s3path = LYRICS_ZIPNAME,
-                  outpath = DEFAULT_DATA_FPATH)        
+                  outpath = DEFAULT_DATA_FPATH)
+    ### doesn't work :/
     if !isfile(outpath)
         if VERBOSE
             println("Downloading $(s3bucket)/$(s3path) to $(outpath)...")
@@ -24,25 +25,6 @@ function download(; s3bucket = BUCKET_NAME, s3path = LYRICS_ZIPNAME,
         aws = aws_config()
         s3_get_file(aws, s3bucket, s3path, outpath)
     end
-end
-
-function unzip(zippath = DEFAULT_DATA_FPATH)
-    #r = Reader(zippath)
-    ##for (i, f) in enumerate(r.files)
-    ##    if i > 2
-    ##        error("Only expected one file in the zip, but got more.")
-    ##    end
-    ##    name = f.name
-    ##    full_fpath = joinpath(dirname(zippath), f.name)
-    ##    if !isfile(full_fpath)
-    ##        open(full_fpath, "w") do handle
-    ##            write(handle, read(f, String))
-    ##        end
-    ##    end
-    ##end
-    #a_file_in_zip = filter(x -> x.name == "lyrics.csv", r.files)[1]
-    #return CSV.read(a_file_in_zip)
-    return open_zip(zippath)["lyrics.csv"]
 end
 
 function count_songs_per_artist(data::DataFrame)::DataFrame
@@ -65,16 +47,26 @@ function describe(data::DataFrame)
     return unique_artists, quantiles
 end
 
-
+function split_train_test_by_artist(data::DataFrame;
+                                    train_prop::Float64 = 0.80)::DataFrame
+    """
+    Returns a new dataframe the same length as the input, with each row marked
+    train or test. Splits are done within-artist. If an artist only has one song, 
+    it goes in train (TODO: still need to check this).
+    """
+    ## We should shuffle the rows. Right now early songs go to train, later to test.
+    rowinds::DataFrame = by(
+        data, :artist, df -> (song_ind = 1:nrow(df),
+                              n_songs = repeat([nrow(df)], nrow(df))))
+    rowinds[!, :song_prop] = rowinds[!, :song_ind] ./ rowinds[!, :n_songs]
+    rowinds[!, :group] = [p <= train_prop ? "train" : "test"
+                          for p in rowinds[!, :song_prop]]
+    data = join(data, rowinds, on = :artist)
+    return data
+end
 
 function read_data()
     return CSV.read("data/lyrics.csv")
 end
-# download()
-# data = unzip()
-
-# println(data)
-
-# describe(datapath)
 
 end
