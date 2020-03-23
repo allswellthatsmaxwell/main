@@ -56,6 +56,12 @@ git-tree-sha1 = "7d5bf815cc0b30253e3486e8ce2b93bf9d0faff6"
 uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 version = "0.20.2"
 
+[[DataFramesMeta]]
+deps = ["DataFrames", "Tables"]
+git-tree-sha1 = "8a6dd4f640dd6b729f5d1f0d80d475fbf60b32af"
+uuid = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
+version = "0.5.0"
+
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections"]
 git-tree-sha1 = "5a431d46abf2ef2a4d5d00bd0ae61f651cf854c8"
@@ -105,9 +111,9 @@ uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[HTTP]]
 deps = ["Base64", "Dates", "IniFile", "MbedTLS", "Sockets"]
-git-tree-sha1 = "8d9bdd55c9d0d6ddf08f8b5229f90b7f274b6777"
+git-tree-sha1 = "cd60d9a575d3b70c026d7e714212fd4ecf86b4bb"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "0.8.12"
+version = "0.8.13"
 
 [[InfoZIP]]
 deps = ["Test"]
