@@ -4,7 +4,9 @@ using AWSCore: aws_config
 using AWSS3: s3_get_file
 using Base.Filesystem: dirname, mkdir, ispath, basename, joinpath
 # using ZipFile: Reader, read
-using CSV, DataFrames, DataFramesMeta, Statistics, Unicode
+# using Statistics
+using CSV, DataFrames, DataFramesMeta, Unicode
+using Flux
 
 BUCKET_NAME = "maxwell-main"
 LYRICS_ZIPNAME = "data/380000-lyrics-from-metrolyrics.zip"
@@ -94,8 +96,30 @@ function CharMap(lyrics::Array{String, 1})
     return CharMap(d)
 end
 
+struct ArtistMap
+    d::Dict{String, Int}
+end
+
+function ArtistMap(artists::Array{String, 1})
+    d = Dict()
+    i = 1
+    for artist in artists
+        if artist ∉ keys(d)
+            d[artist] = i
+            i += 1
+        end
+    end
+    return ArtistMap(d)
+end
+
+encode(amap::ArtistMap, artists::Array{String, 1})::Array{Int, 1} = [
+    amap.d[artist] for artist in artists]
+
 encode(charmap::CharMap, songtext::String)::Array{Int, 1} = [
     charmap.d[c] for c in songtext]
+
+encode(charmap::CharMap, songtexts::Array{String, 1})::Array{Array{Int, 1}, 1} =
+    [encode(charmap, songtext) for songtext in songtexts]
 
 function read_and_process_data(;max_rows::Int = 10000,
                                train_prop::Float64 = 0.80)::DataFrame    
@@ -108,6 +132,34 @@ function read_and_process_data(;max_rows::Int = 10000,
     return data
 end
 
+function make_model(encoded_lyrics::Array{Array{Int,1}, 1},
+                    encoded_artists::Array{Int, 1})
+    return nothing
+end
+
+function make_model(df::DataFrame)
+    amap = ArtistMap(df[!, :artist])
+    cmap = CharMap(df[!, :lyrics])
+    encoded_lyrics = encode(cmap, df[!, :lyrics])
+    encoded_artists = encode(amap, df[!, :artist])
+    return make_model(encoded_lyrics, encoded_artists)
+end
+
+    
+
 # cm = CharMap(data[!, :lyrics])
+
+## struct EmbeddingLayer
+##     W
+##     EmbeddingLayer(mf, vs) = new(param(Flux.glorot_normal(mf, vs)))
+## end
+## 
+## @Flux.treelike EmbeddingLayer
+
+## (m::EmbeddingLayer)(x) = m.W * Flux.onehotbatch(reshape(x, pad_size*N),
+##                                                 0:vocab_size-1)
+
+
+
 
 end
