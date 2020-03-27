@@ -69,11 +69,33 @@ standardize(lyrics::Array{Union{String, Missing}, 1}) = map(lyrics) do s
     else
         s = string(s)
         s = Unicode.normalize(s, stripmark = true)
-        s = Unicode.lowercase(s)
-        s = replace(s, r"[\n]" => " ")
+        #s = Unicode.lowercase(s)
+        #s = replace(s, r"[\n.,?!;]" => " ")
+        #s = replace(s, r"[^a-zA-Z0-9 ]" => "")
         return s
     end
 end
+
+struct CharMap
+    d::Dict{Char, Int}
+end
+
+function CharMap(lyrics::Array{String, 1})
+    d = Dict()
+    i = 1
+    for songtext in lyrics
+        for char in songtext
+            if char ∉ keys(d)
+                d[char] = i
+                i += 1
+            end
+        end
+    end
+    return CharMap(d)
+end
+
+encode(charmap::CharMap, songtext::String)::Array{Int, 1} = [
+    charmap.d[c] for c in songtext]
 
 function read_and_process_data(;max_rows::Int = 10000,
                                train_prop::Float64 = 0.80)::DataFrame    
@@ -85,5 +107,7 @@ function read_and_process_data(;max_rows::Int = 10000,
     data[!, :rowid] = 1:nrow(data)
     return data
 end
+
+# cm = CharMap(data[!, :lyrics])
 
 end
