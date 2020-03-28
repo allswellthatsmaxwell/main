@@ -14,6 +14,9 @@ LOCAL_DATA_DIR = "data"
 DEFAULT_DATA_FPATH = "$(LOCAL_DATA_DIR)/$(basename(LYRICS_ZIPNAME))"
 VERBOSE = true
 
+TRN_IND = "train"
+TST_IND = "test"
+
 struct CharMap
     """ Maps characters in song lyrics to integers. """
     d::Dict{Char, Int}
@@ -111,7 +114,7 @@ function mark_train_test_by_artist(data::DataFrame, train_prop::Float64)::DataFr
                       song_ind = 1:length(:song),
                       n_songs = length(:song))
     data[!, :song_prop] = @with(data, :song_ind ./ :n_songs)
-    data[!, :group] = [p <= train_prop ? "train" : "test"
+    data[!, :group] = [p <= train_prop ? TRN_IND : TST_IND
                        for p in data[!, :song_prop]]
     return data
 end
@@ -151,6 +154,11 @@ encode(charmap::CharMap, songtexts::Array{String, 1})::Array{Array{Int, 1}, 1} =
 
 function encode_and_pad(charmap::CharMap, songtext::String,
                         cfg::ModelConfig)::Array{Int, 1}
+    """
+    Maps the characters in a song to their integer 
+    representations, and pads its length to the in length in the config.
+    """
+
     unpadded::Array{Int, 1} = encode(charmap, songtext)
     remaining::Int = cfg.in - length(unpadded)
     padding = repeat([cfg.pad], remaining)
@@ -159,10 +167,12 @@ end
 
 function encode_and_pad(charmap::CharMap, songtexts::Array{String, 1},
                         cfg::ModelConfig)::Array{Array{Int, 1}, 1}
+    """
+    Maps the characters in each song in songtexts to their integer 
+    representations, and makes sure they're all the same length.
+    """
     return [encode_and_pad(charmap, songtext, cfg) for songtext in songtexts]
 end
-
-
 
 function ArtistMap(artists::Array{String, 1})
     d = Dict()
@@ -193,32 +203,33 @@ function construct_model(in::Int, out::Int)
                  Dense(out, out, tanh),
                  Dense(out, out, relu),
                  Dense(out, out, tanh),
-                 Dense(out, out, σ))
+                 Dense(out, out, softmax))
 end
 
 construct_model(cfg::ModelConfig) = construct_model(cfg.in, cfg.out)
 
+data(mdata::ModelData) = zip(mdata.X, mdata.Y)
+
+function Flux.train!(m::Flux.Chain, trn::ModelData, tst::ModelData)
+    loss(x, y) = crossentropy(m(x), y)
+    opt = Flux.ADAM()
+    trn_batches = Flux.Data.DataLoader(trn.X, trn.Y, batchsize = 1024) 
+    evalcb() = @show(loss(tst.X, tst.Y))
+    
+    Flux.train!(loss, params(m), trn_batches, opt, cb = Flux.throttle(evalcb, 5))
+end
+
 function getvars()
     df = read_and_process_data()
-    mdata = ModelData(df)
-    model = construct_model(mdata.cfg)
-    return df, mdata, model
+    ## TODO: need to match input len between train and test.
+    trn = ModelData(filter(row -> row[:group] == TRN_IND, df))
+    tst = ModelData(filter(row -> row[:group] == TST_IND, df))
+    m = construct_model(trn.cfg)
+    return df, trn, tst, m
 end
 
 #using Revise, Songs
-#df, mdata, model = Songs.getvars()
-
-## struct EmbeddingLayer
-##     W
-##     EmbeddingLayer(mf, vs) = new(param(Flux.glorot_normal(mf, vs)))
-## end
-## 
-## @Flux.treelike EmbeddingLayer
-
-## (m::EmbeddingLayer)(x) = m.W * Flux.onehotbatch(reshape(x, pad_size*N),
-##                                                 0:vocab_size-1)
-
-
-
+#df, trn, tst, m = Songs.getvars();
+#Songs.Flux.train!(m, trn, tst)
 
 end
