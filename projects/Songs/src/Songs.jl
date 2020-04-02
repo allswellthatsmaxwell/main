@@ -16,6 +16,7 @@ VERBOSE = true
 
 TRN_IND = "train"
 TST_IND = "test"
+UNKNOWN_ARTIST = "!unknown!"
 
 struct CharMap
     """ Maps characters in song lyrics to integers. """
@@ -28,12 +29,42 @@ struct ArtistMap
 end
 
 struct ModelConfig
+    """
+    :param in: the number of features in the input.
+    :param out: the number of artists.
+    :param pad: the value used to indicate pad input
+    lyrics that are shorter than the chosen input dimension.
+    :param artists: the artists we're predicting.
+    """
     in::Int
     out::Int
     pad::Int
+    artists::Array{String, 1}
 end
 
+function ModelConfig(df::DataFrame)
+    """
+    Creates a config where the input dimension (i.e., the 
+    number of characters used from a song when training/predicting
+    on it) is the maximum observed length in df's :lyrics column,
+    where the artists in scope to predict on are the unique artists
+    present in df's :artist column, and the padding value is 0.
+    """
+    max_obs_len = maximum(map(length, df[!, :lyrics]))
+    artists = unique(df[!, :artist])
+    push!(artists, UNKNOWN_ARTIST)
+    return ModelConfig(max_obs_len,
+                       length(artists),
+                       0,
+                       artists)
+end
+
+
 struct ModelData
+    """
+    Holds input and output matrices, as well as model configuration,
+    for artist prediction based on lyrics.
+    """
     X::Array{Int, 2}
     Y::Flux.OneHotMatrix{Array{Flux.OneHotVector, 1}}
     cfg::ModelConfig
@@ -41,9 +72,14 @@ end
 
 function ModelData(df::DataFrame, cfg::ModelConfig)
     """
-    Constructs a ModelData where X is of shape ... TODO    
+    Constructs predictor and response matrices according
+    to the input dataframe and config. If an artist in df
+    is not known to the config, it gets bucketed into an unknown
+    marker when being one-hot-encoded into the Y matrix.
     """
-    Y = Flux.onehotbatch(df[!, :artist], unique(df[!, :artist]))
+    rowwise_artists = [artist ∈ cfg.artists ? artist : UNKNOWN_ARTIST
+                       for artist in df[!, :artist]]
+    Y = Flux.onehotbatch(rowwise_artists, cfg.artists)
     cmap = CharMap(df[!, :lyrics])
     encoded_lyrics = encode_and_pad(cmap, df[!, :lyrics], cfg)
     X = hcat(encoded_lyrics...)
@@ -51,10 +87,14 @@ function ModelData(df::DataFrame, cfg::ModelConfig)
 end
 
 function ModelData(df::DataFrame)
+    """
+    Constructs predictor and response matrices according
+    to the input dataframe, also constructing its config
+    from the input too. 
+    """    
     cfg = ModelConfig(df)
     return ModelData(df, cfg)
 end
-
 
 function download(; s3bucket = BUCKET_NAME, s3path = LYRICS_ZIPNAME,
                   outpath = DEFAULT_DATA_FPATH)
@@ -133,9 +173,6 @@ standardize(lyrics::Array{Union{String, Missing}, 1}) = map(lyrics) do s
     else
         s = string(s)
         s = Unicode.normalize(s, stripmark = true)
-        #s = Unicode.lowercase(s)
-        #s = replace(s, r"[\n.,?!;]" => " ")
-        #s = replace(s, r"[^a-zA-Z0-9 ]" => "")
         return s
     end
 end
@@ -208,14 +245,6 @@ end
 encode(amap::ArtistMap, artists::Array{String, 1})::Array{Int, 1} = [
     amap.d[artist] for artist in artists]
 
-ModelConfig(in::Int, out::Int) = ModelConfig(in, out, 0)
-
-function ModelConfig(df::DataFrame)
-    max_obs_len = maximum(map(length, df[!, :lyrics]))
-    n_artists = length(unique(df[!, :artist]))
-    return ModelConfig(max_obs_len, n_artists)
-end
-
 function construct_model(in::Int, out::Int)
     return Chain(Dense(in,  out, tanh),
                  Dense(out, out, relu),
@@ -230,18 +259,20 @@ construct_model(cfg::ModelConfig) = construct_model(cfg.in, cfg.out)
 
 data(mdata::ModelData) = zip(mdata.X, mdata.Y)
 
-function Flux.train!(m::Flux.Chain, trn::ModelData, tst::ModelData)
+function Flux.train!(m::Flux.Chain, trn::ModelData, tst::ModelData;
+                     epochs::Int = 10, batchsize::Int = 128)
     loss(x, y) = Flux.crossentropy(m(x), y)
     opt = Flux.ADAM()
-    trn_batches = Flux.Data.DataLoader(trn.X, trn.Y, batchsize = 1024) 
+    trn_batches = Flux.Data.DataLoader(trn.X, trn.Y, batchsize = batchsize)
     evalcb() = @show(loss(tst.X, tst.Y))
-    
-    Flux.train!(loss, params(m), trn_batches, opt,
-                cb = Flux.throttle(evalcb, 5))
+    for epoch in 1:epochs
+        Flux.train!(loss, params(m), trn_batches, opt,
+                    cb = Flux.throttle(evalcb, 5))
+    end
 end
 
-function getvars()
-    df = read_and_process_data()
+function getvars(;max_rows::Int = 10000)
+    df = read_and_process_data(max_rows = max_rows)
     ## TODO: need to match input len between train and test.
     trn = ModelData(filter(row -> row[:group] == TRN_IND, df))
     tst = ModelData(filter(row -> row[:group] == TST_IND, df),
