@@ -1,5 +1,5 @@
 # main
-An all-in-one repository for a lot of my work.
+An all-in-one repository for Julia work, including a reinforcement learning agent and a lyrics model.
 
 ## Separate projects in this repository:
 
