@@ -246,11 +246,12 @@ encode(amap::ArtistMap, artists::Array{String, 1})::Array{Int, 1} = [
     amap.d[artist] for artist in artists]
 
 function construct_model(in::Int, out::Int)
-    return Chain(Dense(in,  out, tanh),
-                 Dense(out, out, relu),
-                 Dense(out, out, tanh),
-                 Dense(out, out, relu),
-                 Dense(out, out, tanh),
+    return Chain(#Dense(in,  out, relu),
+                 Flux.GRU(in, out), #tanh,
+                 Flux.GRU(out, out), #tanh,
+                 #Dense(out, out, tanh),
+                 #Dense(out, out, relu),
+                 #Dense(out, out, tanh),
                  Dense(out, out),
                  softmax)
 end
@@ -261,17 +262,26 @@ data(mdata::ModelData) = zip(mdata.X, mdata.Y)
 
 function Flux.train!(m::Flux.Chain, trn::ModelData, tst::ModelData;
                      epochs::Int = 10, batchsize::Int = 128)
+    #function loss(xs, ys)
+    #    l = sum(crossentropy.(m(xs), ys))
+    #    #Flux.truncate!(m)
+    #    return l
+    #end
     loss(x, y) = Flux.crossentropy(m(x), y)
     opt = Flux.ADAM()
     trn_batches = Flux.Data.DataLoader(trn.X, trn.Y, batchsize = batchsize)
-    evalcb() = @show(loss(tst.X, tst.Y))
+    #evalcb() = @show(loss(tst.X, tst.Y))
     for epoch in 1:epochs
-        Flux.train!(loss, params(m), trn_batches, opt,
-                    cb = Flux.throttle(evalcb, 5))
+        Flux.train!(loss,
+                    params(m),
+                    #zip(trn.X, trn.Y),
+                    trn_batches,
+                    opt)
+                    #cb = Flux.throttle(evalcb, 5))
     end
 end
 
-function getvars(;max_rows::Int = 10000)
+function getvars(;max_rows::Int = 5000)
     df = read_and_process_data(max_rows = max_rows)
     ## TODO: need to match input len between train and test.
     trn = ModelData(filter(row -> row[:group] == TRN_IND, df))
