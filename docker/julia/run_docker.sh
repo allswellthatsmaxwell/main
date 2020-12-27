@@ -1,9 +1,7 @@
 #!/bin/bash
 port=$1
 
-image="julia_with_image_libs:latest"
-# image="julia:latest"
-## docker pull $image
+image="julia_with_packages:latest"
 
  ## will need to make config dir for startup.jl.
 docker run -it --rm --entrypoint /bin/bash \
@@ -11,7 +9,7 @@ docker run -it --rm --entrypoint /bin/bash \
        -v ~/.aws:/root/.aws \
        -v ~/main/setup/startup.jl:/root/.julia/config/startup.jl \
        -p $port:$port \
-       -m=1.5G \
+       -m=4G \
        --name "maxwell" \
        -e GRANT_SUDO=yes \
        -e USERID=$UID \

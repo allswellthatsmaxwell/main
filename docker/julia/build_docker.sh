@@ -1,2 +1,2 @@
 #!/bin/bash
-docker build -t julia_with_image_libs .
+docker build -t julia_with_packages .
