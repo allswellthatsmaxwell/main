@@ -2,6 +2,7 @@ module Writing
 
 # using Turing
 # using Base
+using ArgParse: ArgParseSettings, @add_arg_table!, parse_args
 
 const WordList = Array{SubString{String}, 1}
 const CountSubdict = Dict{SubString, Int}
@@ -168,7 +169,7 @@ end
 generate_from(d::ProbaDict) = generate_from(d, 1000)
 
 
-function get_distributions(author::Author)::ProbaDict
+function get_distributions(author::Author, gramsize::Int)::ProbaDict
     """
     Gets the combined probability distribution 
     over all the files by the passed author.
@@ -177,12 +178,32 @@ function get_distributions(author::Author)::ProbaDict
     gram_counts = Array{CountDict, 1}()
     for file in files
         wordlist = read_text_file(file)
-        onegrams = get_grams(wordlist, 1)
-        push!(gram_counts, onegrams)
+        grams = get_grams(wordlist, gramsize)
+        push!(gram_counts, grams)
     end
     combined_counts::CountDict = union_counts(gram_counts)
     distributions = _normalize_subdicts(combined_counts)
     return distributions
 end
 
+
+function main(author::Author)
+    distributions = get_distributions(author, 2)
+    generate_from(distributions)
 end
+
+s = ArgParseSettings()
+@add_arg_table! s begin
+    "--author", "-a"
+    help = "Author to draw style from."
+    arg_type = Author
+end
+
+if !isdefined(Base, :active_repl) #PROGRAM_FILE == @__FILE__
+    args = parse_args(s)
+    main(args["author"])
+end
+
+
+end
+
