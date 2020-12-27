@@ -11,11 +11,11 @@ const CountDict = Dict{WordList, CountSubdict}
 const EmpiricalDistribution = Dict{SubString, Float64}
 const ProbaDict = Dict{WordList, EmpiricalDistribution}
 
-const Author = String
+const Author = SubString{String}
 
 
 GUTENBERG_BOOKS_PATH = "../data/Gutenberg/txt"
-PUNCTUATION = ".;,()-{}[]&*^%\$#@!\\/"
+PUNCTUATION = ".;,()-{}[]&*^%\$#@!\\/?!" # add '?
 
 
 function read_text_file(path::String)::WordList
@@ -25,6 +25,7 @@ function read_text_file(path::String)::WordList
         return wordlist
     end
 end
+
 
 function _do_punct_separation(word::SubString)::WordList
     """
@@ -65,7 +66,7 @@ function clean_text_for_kgrams(text::String)::WordList
 end
 
 
-function filter_gutenberg(author::String)::Array{String, 1}
+function filter_gutenberg(author::Author)::Array{String, 1}
     """
     Returns the paths to all files in the Gutenberg directory that
     have author in their filename.
@@ -151,10 +152,17 @@ function generate_from(distributions::ProbaDict, len::Int)
         prefix = prefix[2:end]
         push!(prefix, closest_word)
     end
+    println()
 end
 
 
+generate_from(d::ProbaDict) = generate_from(d, 1000)
+
+
 function sample(distribution::EmpiricalDistribution)::SubString
+    """
+    Chooses a word from distribution, according to its probabilities.
+    """
     r = rand(1)[1]
     sum_so_far = 0
     for (word, p) in distribution        
@@ -166,20 +174,20 @@ function sample(distribution::EmpiricalDistribution)::SubString
 end
 
 
-generate_from(d::ProbaDict) = generate_from(d, 1000)
-
-
-function get_distributions(author::Author, gramsize::Int)::ProbaDict
+function get_distributions(authors::Array{Author, 1}, gramsize::Int)::ProbaDict
     """
     Gets the combined probability distribution 
-    over all the files by the passed author.
+    over all the files by the passed authors.
     """
-    files = filter_gutenberg(author)
     gram_counts = Array{CountDict, 1}()
-    for file in files
-        wordlist = read_text_file(file)
-        grams = get_grams(wordlist, gramsize)
-        push!(gram_counts, grams)
+    for author in authors
+        files = filter_gutenberg(author)
+        println("Found $(length(files)) files for $(author).")
+        for file in files
+            wordlist = read_text_file(file)
+            grams = get_grams(wordlist, gramsize)
+            push!(gram_counts, grams)
+        end
     end
     combined_counts::CountDict = union_counts(gram_counts)
     distributions = _normalize_subdicts(combined_counts)
@@ -187,21 +195,30 @@ function get_distributions(author::Author, gramsize::Int)::ProbaDict
 end
 
 
-function main(author::Author)
-    distributions = get_distributions(author, 2)
+function main(authors::Array)
+    distributions = get_distributions(authors, 2)
     generate_from(distributions)
 end
 
+
+main(author::Author) = main([author])
+
+
 s = ArgParseSettings()
 @add_arg_table! s begin
-    "--author", "-a"
-    help = "Author to draw style from."
-    arg_type = Author
+    "--authors", "-a"
+    help = "Pipe-separated list of authors to draw style from, e.g. \"Christie|Twain\""
+    arg_type = String
 end
 
-if !isdefined(Base, :active_repl) #PROGRAM_FILE == @__FILE__
+
+if !isdefined(Base, :active_repl)
     args = parse_args(s)
-    main(args["author"])
+    authors = split(args["authors"], "|")
+    authors_str = join(authors, ", ")
+    println("Got author list [$(authors_str)].")
+    println()
+    main(authors)
 end
 
 
