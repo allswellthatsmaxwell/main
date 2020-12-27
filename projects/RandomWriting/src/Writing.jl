@@ -12,7 +12,10 @@ const ProbaDict = Dict{WordList, EmpiricalDistribution}
 
 const Author = String
 
+
 GUTENBERG_BOOKS_PATH = "../data/Gutenberg/txt"
+PUNCTUATION = ".;,()-{}[]&*^%\$#@!\\/"
+
 
 function read_text_file(path::String)::WordList
     open(path) do f
@@ -27,7 +30,7 @@ function _do_punct_separation(word::SubString)::WordList
     Splits word into [word, punctuation mark] 
     if word ends with a punctuation mark.
     """
-    puncts = split(".;,()-{}[]&*^%\$#@!\\/", "")
+    puncts = split(PUNCTUATION, "")
     for punct in puncts
         if endswith(word, punct)
             clean_word = replace(word, punct => "")
@@ -129,33 +132,40 @@ function union_counts(counts::Array{CountDict, 1})::CountDict
     return combined_distributions    
 end
 
-function generate_from(distributions::ProbaDict, len::Int)::nothing
+
+function generate_from(distributions::ProbaDict, len::Int)
     """
     Writes len words from the input distribution. Starts with
     a random prefix, then proceeds according to the distributions.
     """
     prefix = rand(keys(distributions))
-    print(prefix)    
+    print(join(prefix, " "))
     for _ in 1:len
-        print(" ")
         distribution = distributions[prefix]
-        r = rand(1)[1]
-        closest_dist = 100
-        closest_word = nothing
-        for (word, p) in distribution
-            dist = abs(r - p)
-            if dist < closest_dist
-                closest_dist = dist
-                closest_word = word
-            end
+        closest_word = sample(distribution) 
+        if !occursin(closest_word, PUNCTUATION)
+            print(" ")
         end
+        print(closest_word)
         prefix = prefix[2:end]
         push!(prefix, closest_word)
-        print(closest_word)        
     end
 end
 
-generate_from(d::ProbaDict)::nothing = generate_from(d, 1000)
+
+function sample(distribution::EmpiricalDistribution)::SubString
+    r = rand(1)[1]
+    sum_so_far = 0
+    for (word, p) in distribution        
+        if sum_so_far ≤ r ≤ sum_so_far + p
+            return word
+        end
+        sum_so_far += p 
+    end
+end
+
+
+generate_from(d::ProbaDict) = generate_from(d, 1000)
 
 
 function get_distributions(author::Author)::ProbaDict
